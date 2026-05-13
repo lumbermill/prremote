@@ -4,8 +4,8 @@ class FakeSerial
   attr_reader :written
 
   def initialize(responses = [""])
-    @responses  = responses.dup
-    @written    = []
+    @responses = responses.dup
+    @written   = []
   end
 
   def write(data)
@@ -20,38 +20,33 @@ class FakeSerial
 end
 
 class ConnectionTest < Minitest::Test
-  def build_conn(responses: [""])
-    fake = FakeSerial.new(responses)
+  # open() now does two read(4096) calls (boot noise + Ctrl-C drain) then
+  # reads until "$> " in a loop.
+  OPEN_SEQ = ["", "", "$> "].freeze
+
+  def open_conn(extra_responses: [])
+    fake = FakeSerial.new(OPEN_SEQ + extra_responses)
     Serial.stub(:new, fake) do
       conn = Prremote::Connection.new(port: "/dev/ttyACM0")
-      conn.stub(:sleep, nil) do
-        conn.open
-      end
-      [conn, fake]
+      conn.stub(:sleep, nil) { conn.open }
+      yield conn, fake
     end
   end
 
   def test_open_marks_connection_open
-    Serial.stub(:new, FakeSerial.new) do
-      conn = Prremote::Connection.new(port: "/dev/ttyACM0")
-      conn.stub(:sleep, nil) { conn.open }
-      assert conn.open?
-    end
+    open_conn { |conn| assert conn.open? }
   end
 
   def test_close_marks_connection_closed
-    Serial.stub(:new, FakeSerial.new) do
-      conn = Prremote::Connection.new(port: "/dev/ttyACM0")
-      conn.stub(:sleep, nil) { conn.open }
+    open_conn do |conn|
       conn.close
       refute conn.open?
     end
   end
 
   def test_run_raises_timeout_when_no_prompt
-    Serial.stub(:new, FakeSerial.new([])) do
-      conn = Prremote::Connection.new(port: "/dev/ttyACM0")
-      conn.stub(:sleep, nil) { conn.open }
+    # After open, the queue is empty so run() times out immediately.
+    open_conn do |conn|
       assert_raises(Prremote::TimeoutError) do
         conn.run("bad", timeout: 0.01)
       end
@@ -59,13 +54,10 @@ class ConnectionTest < Minitest::Test
   end
 
   def test_run_returns_stripped_output
-    responses = ["", "42\n> "]
-    Serial.stub(:new, FakeSerial.new(responses)) do
-      conn = Prremote::Connection.new(port: "/dev/ttyACM0")
-      conn.stub(:sleep, nil) { conn.open }
-      # We can't easily call run here without a real serial, so just verify
-      # read_until_prompt strips the prompt. We stub read directly.
-      assert_equal "42", conn.send(:read_until_prompt, timeout: 1) { "42\n> " } rescue nil
+    # Serial echoes the command then prints output followed by prompt.
+    run_response = "echo\r\n42\n$> "
+    open_conn(extra_responses: [run_response]) do |conn|
+      assert_equal "42", conn.run("echo")
     end
   end
 end

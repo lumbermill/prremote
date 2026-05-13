@@ -19,12 +19,14 @@ module Prremote
 
     def open
       @serial = Serial.new(port, baud)
-      sleep 0.2
-      @serial.read(4096)    # discard boot noise
-      @serial.write("\r\n") # trigger a fresh prompt
+      sleep 0.5
+      @serial.read(4096)    # discard boot noise / any pending output
+      @serial.write("\x03") # Ctrl-C: interrupt any running operation
+      sleep 0.2             # let the device process the interrupt
+      @serial.read(4096)    # drain the interrupt echo/response
+      @serial.write("\r\n") # request a fresh shell prompt
       raw = read_raw_until_prompt(prompt: EITHER_RE, timeout: 5.0)
       if strip_ansi(raw).gsub("\r", "").match?(IRB_RE)
-        # Device was left in irb mode; exit back to shell
         @serial.write("exit\r\n")
         read_raw_until_prompt(prompt: SHELL_RE, timeout: 5.0)
       end

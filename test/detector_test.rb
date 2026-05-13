@@ -20,16 +20,19 @@ class DetectorTest < Minitest::Test
   end
 
   def test_find_device_returns_nil_when_no_ports
-    @detector.stub(:serial_ports, []) do
-      assert_nil Prremote::Detector.find_device
+    # Detector.find_device calls new.find_device, so stub Detector.new to return
+    # the pre-configured instance.
+    Prremote::Detector.stub(:new, @detector) do
+      @detector.stub(:serial_ports, []) do
+        assert_nil Prremote::Detector.find_device
+      end
     end
   end
 
-  def test_find_device_returns_only_port
-    stub_detector = Prremote::Detector.new
-    stub_detector.stub(:serial_ports, ["/dev/ttyACM0"]) do
-      stub_detector.stub(:r2p2_port?, false) do
-        assert_equal "/dev/ttyACM0", stub_detector.send(:serial_ports).first
+  def test_find_device_returns_first_port_when_only_one
+    Prremote::Detector.stub(:new, @detector) do
+      @detector.stub(:serial_ports, ["/dev/ttyACM0"]) do
+        assert_equal "/dev/ttyACM0", Prremote::Detector.find_device
       end
     end
   end

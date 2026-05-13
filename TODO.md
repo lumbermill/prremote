@@ -22,12 +22,14 @@
 - [x] `mkdir <path>` — ディレクトリ作成
 - [x] `version` — バージョン表示
 - [x] `list` — 接続可能デバイス一覧
+- [ ] `cp` - デバイス上でコピー
+- [ ] `watch <file.rb>` - ファイルを監視して変更時に自動でputして実行
 
 ## テスト (Minitest)
 - [x] test/test_helper.rb
 - [x] detector のテスト
 - [x] connection のテスト
-- [ ] 各コマンドのテスト (ls/put/get/run/eval/rm/mkdir)
+- [x] 各コマンドのテスト (ls/put/get/run/eval/rm/mkdir)
 
 ## パッケージング
 - [x] LICENSE
