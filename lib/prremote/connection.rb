@@ -2,12 +2,7 @@ require "rubyserial"
 
 module Prremote
   class Connection
-    # Matches CSI escape sequences (covers \e[?25l, \e[1G, \e[0K, etc.)
-    ANSI_RE   = /\e\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]/
-    SHELL_RE  = /\$> \z/
-    IRB_RE    = /irb> \z/
-    EITHER_RE = /(?:\$|irb)> \z/
-    TIMEOUT   = 10.0
+    TIMEOUT = 10.0
 
     attr_reader :port, :baud
 
@@ -18,18 +13,7 @@ module Prremote
     end
 
     def open
-      @serial = Serial.new(port, baud)
-      sleep 0.5
-      @serial.read(4096)    # discard boot noise / any pending output
-      @serial.write("\x03") # Ctrl-C: interrupt any running operation
-      sleep 0.2             # let the device process the interrupt
-      @serial.read(4096)    # drain the interrupt echo/response
-      @serial.write("\r\n") # request a fresh shell prompt
-      raw = read_raw_until_prompt(prompt: EITHER_RE, timeout: 5.0)
-      if strip_ansi(raw).gsub("\r", "").match?(IRB_RE)
-        @serial.write("exit\r\n")
-        read_raw_until_prompt(prompt: SHELL_RE, timeout: 5.0)
-      end
+      @serial = Serial.new(@port, @baud)
       self
     end
 
@@ -38,69 +22,50 @@ module Prremote
       @serial = nil
     end
 
-    # Send a shell command and return the clean output.
-    def run(cmd, timeout: TIMEOUT)
-      @serial.write("#{cmd}\r\n")
-      raw = read_raw_until_prompt(prompt: SHELL_RE, timeout: timeout)
-      parse_output(raw)
-    end
-
-    # Evaluate a Ruby expression via irb mode and return the result.
-    def eval_ruby(expr, timeout: TIMEOUT)
-      @serial.write("irb\r\n")
-      read_raw_until_prompt(prompt: IRB_RE, timeout: 5.0)
-
-      @serial.write("#{expr}\r\n")
-      raw = read_raw_until_prompt(prompt: IRB_RE, timeout: timeout)
-      result = parse_output(raw).sub(/\A=> /, "")
-
-      @serial.write("exit\r\n")
-      read_raw_until_prompt(prompt: SHELL_RE, timeout: 5.0)
-
-      result
-    end
-
     def open?
       !@serial.nil?
     end
 
-    def reboot
-      @serial.write("reboot\r\n")
-      sleep 0.1
+    def send_line(text)
+      @serial.write("#{text}\r\n")
     end
 
-    private
-
-    def read_raw_until_prompt(prompt:, timeout: TIMEOUT)
-      buf      = +""
+    def read_line(timeout: TIMEOUT)
+      buf = +""
       deadline = Time.now + timeout
-
       loop do
-        chunk = @serial.read(256)
-        buf << chunk if chunk && !chunk.empty?
-        break if strip_ansi(buf).gsub("\r", "").match?(prompt)
-        raise TimeoutError, "Timed out waiting for prompt on #{port}" if Time.now > deadline
+        ch = @serial.read(1)
+        if ch && !ch.empty?
+          buf << ch
+          return buf.chomp.delete("\r") if buf.end_with?("\n")
+        end
+        raise TimeoutError, "Timed out reading from #{@port}" if Time.now > deadline
 
-        sleep 0.01
+        sleep 0.001
       end
-
-      buf
     end
 
-    def parse_output(raw)
-      clean = strip_ansi(raw).gsub("\r\n", "\n").gsub("\r", "")
-      # First line is the character-by-character echo; drop it
-      _echo, rest = clean.split("\n", 2)
-      return "" unless rest
-
-      # Remove trailing prompt redraws
-      rest.gsub(/(?:irb|\$)> *\n?/, "").strip
+    def write_bytes(data)
+      @serial.write(data)
     end
 
-    def strip_ansi(str)
-      str.gsub(ANSI_RE, "")
+    def read_bytes(n, timeout: TIMEOUT)
+      return "".b if n == 0
+
+      buf = "".b
+      deadline = Time.now + timeout
+      loop do
+        remaining = n - buf.bytesize
+        chunk = @serial.read([remaining, 256].min)
+        buf << chunk.b if chunk && !chunk.empty?
+        return buf if buf.bytesize >= n
+        raise TimeoutError, "Timed out reading #{n} bytes from #{@port}" if Time.now > deadline
+
+        sleep 0.001
+      end
     end
   end
 
   class TimeoutError < StandardError; end
+  class ProtocolError < StandardError; end
 end

@@ -6,8 +6,16 @@ module Prremote
       end
 
       def call(path = "/")
-        output = @conn.run("ls #{path}")
-        output.lines.map(&:chomp).reject(&:empty?)
+        @conn.send_line("LS #{path}")
+        entries = []
+        loop do
+          line = @conn.read_line
+          raise ProtocolError, line.delete_prefix("ERROR ") if line.start_with?("ERROR")
+          break if line == "END"
+
+          entries << line
+        end
+        entries
       end
     end
   end

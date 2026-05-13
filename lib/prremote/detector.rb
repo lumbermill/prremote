@@ -18,7 +18,7 @@ module Prremote
 
     def list_devices
       serial_ports.map do |port|
-        label = r2p2_port?(port) ? "R2P2/PicoRuby" : "unknown"
+        label = r2p2_port?(port) ? "prremote/PicoRuby" : "unknown"
         { port: port, label: label }
       end
     end

@@ -1,17 +1,15 @@
 require_relative "test_helper"
 require "tempfile"
 
-# These tests require a PicoRuby/R2P2 device connected via USB.
-# If no device is found, all tests are skipped with instructions.
+# These tests require a Pico running prremote-agent firmware connected via USB.
+# If no device is found, all tests are skipped.
 #
-# NOTE: If ALL tests fail with TimeoutError in setup, the device is frozen.
-# Physically reset the Pico (unplug/replug USB or press the reset button)
-# and re-run: bundle exec rake integration
+# Run with: bundle exec rake integration
 class IntegrationTest < Minitest::Test
   SKIP_MSG = <<~MSG.freeze
 
     ─── 実機テストをスキップしました ────────────────────────────────
-    Pico (R2P2) が見つかりません。
+    prremote-agent を書き込んだ Pico が見つかりません。
     USB に接続してから再実行してください:
 
       bundle exec rake integration
@@ -31,7 +29,7 @@ class IntegrationTest < Minitest::Test
     nil
   end
 
-  def test_ls_root_returns_array
+  def test_ls_returns_array
     result = Prremote::Commands::Ls.new(@conn).call("/")
     assert_kind_of Array, result
   end
@@ -53,13 +51,13 @@ class IntegrationTest < Minitest::Test
 
     Tempfile.create(["get_dst", ".rb"]) do |dst|
       Prremote::Commands::Get.new(@conn).call(remote, dst.path)
-      assert_equal content, File.read(dst.path)
+      assert_equal content, File.binread(dst.path)
     end
   ensure
-    @conn.run(%(File.delete("#{remote}"))) rescue nil
+    Prremote::Commands::Rm.new(@conn).call(remote) rescue nil
   end
 
-  def test_mkdir_creates_directory_and_rm_removes_file
+  def test_mkdir_and_rm
     dir  = "/home/_prremote_testdir"
     file = "#{dir}/test.rb"
 
@@ -75,15 +73,6 @@ class IntegrationTest < Minitest::Test
     ls = Prremote::Commands::Ls.new(@conn).call(dir)
     refute_includes ls, "test.rb"
   ensure
-    @conn.run(%(File.delete("#{file}"))) rescue nil
-  end
-
-  def test_run_executes_script_and_returns_output
-    Tempfile.create(["run_src", ".rb"]) do |f|
-      f.write("puts 42")
-      f.flush
-      result = Prremote::Commands::Run.new(@conn).call(f.path)
-      assert_match(/42/, result)
-    end
+    Prremote::Commands::Rm.new(@conn).call(file) rescue nil
   end
 end

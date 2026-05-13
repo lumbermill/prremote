@@ -5,10 +5,12 @@ require_relative "connection"
 require_relative "commands/ls"
 require_relative "commands/put"
 require_relative "commands/get"
-require_relative "commands/run"
 require_relative "commands/eval_cmd"
 require_relative "commands/rm"
 require_relative "commands/mkdir"
+require_relative "commands/cp"
+require_relative "commands/watch"
+require_relative "commands/install"
 
 module Prremote
   class CLI < Thor
@@ -19,7 +21,7 @@ module Prremote
       true
     end
 
-    desc "list", "Show available R2P2/PicoRuby devices"
+    desc "list", "Show available prremote-compatible devices"
     def list
       devices = Detector.new.list_devices
       if devices.empty?
@@ -27,60 +29,6 @@ module Prremote
       else
         devices.each { |d| puts "#{d[:port]}  (#{d[:label]})" }
       end
-    end
-
-    desc "repl", "Open interactive REPL on device"
-    def repl
-      port = resolve_port
-      puts "Connecting to #{port} at #{options[:baud]} baud… (Ctrl-C to exit)"
-      conn = Connection.new(port: port, baud: options[:baud]).open
-
-      # Hand off to a simple line-loop REPL
-      loop do
-        print "prremote> "
-        line = $stdin.gets
-        break unless line
-
-        line = line.chomp
-        next if line.empty?
-        break if line == "exit"
-
-        begin
-          result = conn.run(line)
-          puts result unless result.empty?
-        rescue TimeoutError => e
-          warn "Timeout: #{e.message}"
-        end
-      end
-    ensure
-      conn&.close
-    end
-
-    desc "irb", "Open interactive Ruby shell on device"
-    def irb
-      port = resolve_port
-      puts "Connecting to #{port} at #{options[:baud]} baud… (Ctrl-C to exit)"
-      conn = Connection.new(port: port, baud: options[:baud]).open
-      loop do
-        print "irb> "
-        line = $stdin.gets
-        break unless line
-
-        line = line.chomp
-        next if line.empty?
-        break if line == "exit"
-
-        begin
-          result = conn.run(line)
-          puts result unless result.empty?
-        rescue TimeoutError => e
-          warn "Timeout: #{e.message}"
-        end
-      end
-    rescue Interrupt
-      # user hit Ctrl-C
-    ensure
-      conn&.close
     end
 
     desc "ls [PATH]", "List files on device"
@@ -93,10 +41,10 @@ module Prremote
 
     desc "put LOCAL [REMOTE]", "Upload file to device"
     def put(local, remote = nil)
-      remote ||= "/#{File.basename(local)}"
+      remote ||= "/home/#{File.basename(local)}"
       with_connection do |conn|
         Commands::Put.new(conn).call(local, remote)
-        puts "Uploaded #{local} -> #{remote}"
+        puts "Uploaded #{local} → #{remote}"
       end
     end
 
@@ -105,18 +53,17 @@ module Prremote
       local ||= File.basename(remote)
       with_connection do |conn|
         Commands::Get.new(conn).call(remote, local)
-        puts "Downloaded #{remote} -> #{local}"
+        puts "Downloaded #{remote} → #{local}"
       end
     end
 
-    desc "run FILE", "Run a local Ruby script on device"
-    def run_script(file)
+    desc "cp SRC DEST", "Copy a file on the device"
+    def cp(src, dest)
       with_connection do |conn|
-        output = Commands::Run.new(conn).call(file)
-        puts output unless output.empty?
+        Commands::Cp.new(conn).call(src, dest)
+        puts "Copied #{src} → #{dest}"
       end
     end
-    map "run" => :run_script
 
     desc "eval EXPR", "Evaluate a Ruby expression on device"
     def eval(expr)
@@ -142,35 +89,38 @@ module Prremote
       end
     end
 
-    VOLUME_ROOT = "/Volumes/R2P2"
+    desc "watch LOCAL [REMOTE]", "Watch file for changes and auto-upload + reset"
+    def watch(local, remote = nil)
+      remote ||= "/home/#{File.basename(local)}"
+      with_connection do |conn|
+        Commands::Watch.new(conn).call(local, remote)
+      end
+    end
 
     desc "reset", "Reset (reboot) the device"
     def reset
-      port = resolve_port
-      warn "Connecting to #{port}…"
-      conn = Connection.new(port: port, baud: options[:baud]).open
-      conn.reboot
-      puts "Device rebooted."
-    ensure
-      conn&.close
+      with_connection do |conn|
+        conn.send_line("RESET")
+        puts "Device rebooted."
+      end
     end
 
-    desc "open [REMOTE]", "Open device path in Finder (macOS only)"
-    def open(remote = "/home")
-      raise Thor::Error, "'open' is only supported on macOS." unless RUBY_PLATFORM.include?("darwin")
-
-      path = File.join(VOLUME_ROOT, remote)
-      raise Thor::Error, "Volume not found: #{VOLUME_ROOT}\n  Is R2P2 connected and mounted?" unless File.exist?(VOLUME_ROOT)
-
-      system("open", path)
+    desc "install", "Download and install prremote firmware to Pico"
+    option :board, default: "pico", desc: "Board type: pico, pico_w"
+    option :list, type: :boolean, default: false, desc: "List available firmware versions"
+    def install
+      Commands::Install.new.call(board: options[:board], list_versions: options[:list])
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
     end
 
     desc "version", "Show prremote and device firmware version"
     def version
       puts "prremote #{VERSION}"
       with_connection do |conn|
-        fw = conn.run("puts RUBY_VERSION")
-        puts "Device Ruby: #{fw}"
+        conn.send_line("VERSION")
+        fw = conn.read_line
+        puts "Firmware: #{fw}"
       end
     end
 
@@ -180,7 +130,7 @@ module Prremote
       return options[:port] if options[:port]
 
       port = Detector.find_device
-      raise Thor::Error, "No R2P2 device found. Use --port to specify one." unless port
+      raise Thor::Error, "No prremote device found. Use --port to specify one." unless port
 
       port
     end
@@ -196,6 +146,8 @@ module Prremote
                          "  - Try: prremote list"
     rescue TimeoutError => e
       raise Thor::Error, "Timeout: #{e.message}"
+    rescue ProtocolError => e
+      raise Thor::Error, "Protocol error: #{e.message}"
     ensure
       conn&.close
     end
