@@ -1,0 +1,1 @@
+../picoruby/mrbgems/picoruby-r2p2/cmake/pico_sdk_import.cmake

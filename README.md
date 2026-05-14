@@ -215,6 +215,43 @@ prremote get /home/app.rb ./app_backup.rb
 
 ---
 
+## Building the Firmware
+
+### Clone with submodules
+
+`firmware/picoruby` is managed as a git submodule (which itself has nested submodules). Always clone with:
+
+```bash
+git clone --recurse-submodules https://github.com/your-org/prremote
+```
+
+If you already cloned without `--recurse-submodules`, run:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Dependencies (macOS)
+
+```bash
+brew install --cask gcc-arm-embedded   # ARM cross-compiler (includes newlib)
+brew install cmake ninja openssl
+```
+
+### Build
+
+```bash
+cd firmware
+LDFLAGS="-L$(brew --prefix openssl)/lib" \
+CPPFLAGS="-I$(brew --prefix openssl)/include" \
+rake prremote:pico:prod       # Pico
+rake prremote:pico_w:prod     # Pico W
+```
+
+The resulting `.uf2` file is written to `firmware/build/<board>/prod/`.
+
+---
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub.

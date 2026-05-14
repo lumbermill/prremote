@@ -1,0 +1,95 @@
+require "fileutils"
+
+FIRMWARE_ROOT  = File.expand_path("..", __FILE__)
+PICORUBY_ROOT  = File.join(FIRMWARE_ROOT, "picoruby")
+PRREMOTE_SRC   = FIRMWARE_ROOT
+
+ENV["PICO_SDK_PATH"]    ||= File.join(PICORUBY_ROOT, "mrbgems/picoruby-r2p2/lib/pico-sdk")
+ENV["PICO_EXTRAS_PATH"] ||= File.join(PICORUBY_ROOT, "mrbgems/picoruby-r2p2/lib/pico-extras")
+
+def prremote_version
+  File.read(File.join(FIRMWARE_ROOT, "agent.rb")).match(/VERSION\s*=\s*"(.+?)"/)[1]
+rescue
+  "dev"
+end
+
+def build_dir(board, mode)
+  File.join(FIRMWARE_ROOT, "build", board, mode)
+end
+
+def mruby_build_path(board)
+  File.join(PICORUBY_ROOT, "build", "prremote-picoruby-#{board}")
+end
+
+def cmake_defs(board, mode)
+  board_defs = case board
+               when "pico_w"
+                 "-D PICO_PLATFORM=rp2040 -D PICO_BOARD=pico_w -D USE_WIFI=1"
+               else
+                 "-D PICO_PLATFORM=rp2040 -D PICO_BOARD=pico"
+               end
+
+  build_type = mode == "debug" \
+    ? "-D CMAKE_BUILD_TYPE=Debug -D PICORB_DEBUG=1" \
+    : "-D CMAKE_BUILD_TYPE=Release -D NDEBUG=1"
+
+  <<~DEFS
+    -D PICORUBY_ROOT=#{PICORUBY_ROOT} \
+    -D PRREMOTE_SRC_DIR=#{PRREMOTE_SRC} \
+    -D EXTRA_LIBRARY_PATH=#{mruby_build_path(board)}/lib \
+    -D EXTRA_INCLUDE_DIR=#{mruby_build_path(board)}/include \
+    -D MRUBY_CONFIG=prremote-picoruby-#{board} \
+    -D PICORB_VM_MRUBY=1 \
+    -D PRREMOTE_VERSION=#{prremote_version} \
+    #{board_defs} \
+    #{build_type}
+  DEFS
+end
+
+namespace :prremote do
+  %w[pico pico_w].each do |board|
+    config = File.join(FIRMWARE_ROOT, "build_config", "prremote-picoruby-#{board}.rb")
+    next unless File.exist?(config)
+
+    namespace board do
+      %w[debug prod].each do |mode|
+        desc "Build prremote firmware for #{board} (#{mode})"
+        task mode do
+          # Stage 1: build libmruby.a inside picoruby dir
+          FileUtils.cd PICORUBY_ROOT do
+            sh "MRUBY_CONFIG=#{config} PICORB_BOARD=#{board} " \
+               "#{"PICORB_DEBUG=1 " if mode == "debug"}rake"
+          end
+
+          # Stage 2: cmake → UF2
+          dir = build_dir(board, mode)
+          FileUtils.mkdir_p dir
+          sh "cmake -S #{FIRMWARE_ROOT}/cmake -B #{dir} #{cmake_defs(board, mode)}"
+          sh "cmake --build #{dir}"
+        end
+      end
+
+      desc "Clean prremote firmware for #{board}"
+      task :clean do
+        FileUtils.cd PICORUBY_ROOT do
+          sh "MRUBY_CONFIG=#{config} rake clean" if File.exist?(config)
+        end
+        %w[debug prod].each do |mode|
+          dir = build_dir(board, mode)
+          FileUtils.rm_f(Dir["#{dir}/prremote*.*"]) if Dir.exist?(dir)
+        end
+      end
+    end
+  end
+end
+
+desc "Show available build targets"
+task :default do
+  puts "Available tasks:"
+  puts "  rake prremote:pico:prod     # Build for Pico (RP2040)"
+  puts "  rake prremote:pico:debug    # Build for Pico (debug)"
+  puts "  rake prremote:pico_w:prod   # Build for Pico W"
+  puts "  rake prremote:pico_w:debug  # Build for Pico W (debug)"
+  puts "  rake prremote:pico:clean    # Clean Pico build"
+  puts "  rake prremote:pico_w:clean  # Clean Pico W build"
+end
