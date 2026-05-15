@@ -1,0 +1,3 @@
+[submodule "runtime/mrubyc"]
+	path = runtime/mrubyc
+	url = https://github.com/mrubyc/mrubyc.git
