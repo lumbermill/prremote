@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(RUNTIME_VERSION "0.1.0")
+set(RUNTIME_VERSION "0.1.1")
 
 set(PICO_BOARD pico_w)
 include(pico_sdk_import.cmake)
@@ -81,6 +81,7 @@ target_link_libraries(runtime
   pico_stdlib
   pico_cyw43_arch_lwip_threadsafe_background
   hardware_gpio
+  hardware_watchdog
 )
 pico_enable_stdio_usb(runtime 1)
 pico_enable_stdio_uart(runtime 0)

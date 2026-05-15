@@ -2,6 +2,8 @@ require "thor"
 require_relative "version"
 require_relative "detector"
 require_relative "connection"
+require_relative "runtime_manager"
+require_relative "commands/install"
 require_relative "commands/ls"
 require_relative "commands/put"
 require_relative "commands/get"
@@ -17,6 +19,15 @@ module Prremote
 
     def self.exit_on_failure?
       true
+    end
+
+    desc "install", "Flash prremote runtime firmware to Pico W"
+    option :version, type: :string, desc: "Firmware version to install (default: #{RUNTIME_VERSION})"
+    def install
+      version = options[:version] || RUNTIME_VERSION
+      Commands::Install.new(version: version).call
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
     end
 
     desc "list", "Show available R2P2/PicoRuby devices"

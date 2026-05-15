@@ -1,6 +1,7 @@
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "hardware/gpio.h"
+#include "hardware/watchdog.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include <mrubyc.h>
@@ -169,6 +170,20 @@ static void runtime_define_methods(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Reset watchdog: fires when Ctrl+C (0x03) is received mid-run      */
+/* ------------------------------------------------------------------ */
+
+static bool check_reset_cb(repeating_timer_t *t)
+{
+  int c = getchar_timeout_us(0);
+  if (c == 0x03) {
+    watchdog_enable(1, 1);
+    while (1) tight_loop_contents();
+  }
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
 /* Read exactly n bytes from USB serial (blocking)                    */
 /* ------------------------------------------------------------------ */
 
@@ -241,8 +256,10 @@ int main(void)
     printf("RUNNING\n");
     stdio_flush();
 
-    /* mrbc_run() returns when all tasks are dormant (MRBC_SCHEDULER_EXIT=1) */
+    repeating_timer_t reset_timer;
+    add_repeating_timer_ms(100, check_reset_cb, NULL, &reset_timer);
     mrbc_run();
+    cancel_repeating_timer(&reset_timer);
 
     printf("DONE\n");
     stdio_flush();
