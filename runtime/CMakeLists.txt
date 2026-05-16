@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.12)
 
 set(RUNTIME_VERSION "0.1.3")
 
-set(PICO_BOARD pico_w)
+# Default board is pico_w; override with: cmake -B build/pico -DPICO_BOARD=pico
+set(PICO_BOARD pico_w CACHE STRING "Target board (pico, pico_w, pico2_w, etc.)")
 include(pico_sdk_import.cmake)
 
 project(mrubyc-pico-w-runtime C CXX ASM)

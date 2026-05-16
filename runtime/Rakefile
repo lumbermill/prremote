@@ -1,27 +1,40 @@
 RUNTIME_VERSION = File.read("CMakeLists.txt")[/set\(RUNTIME_VERSION "([^"]+)"\)/, 1]
-UF2_NAME = "prremote-picow-runtime-#{RUNTIME_VERSION}.uf2"
 
-task default: :runtime
+# gem board label => cmake PICO_BOARD value
+BOARDS = {
+  'picow' => 'pico_w',
+  'pico'  => 'pico'
+}.freeze
 
-desc "Make build/#{UF2_NAME}"
-task :runtime do
-  cmake_ensure
-  sh "make -C build runtime"
-  puts "Output: build/#{UF2_NAME}"
+namespace :build do
+  BOARDS.each do |label, cmake_board|
+    uf2 = "prremote-#{label}-runtime-#{RUNTIME_VERSION}.uf2"
+    desc "Build build/#{label}/#{uf2}"
+    task label.to_sym do
+      cmake_ensure(label, cmake_board)
+      sh "make -C build/#{label} runtime"
+      puts "Output: build/#{label}/#{uf2}"
+    end
+  end
 end
 
-desc "Remove build directory"
+desc "Build UF2 for all boards (#{BOARDS.keys.join(', ')})"
+task build: BOARDS.keys.map { |b| :"build:#{b}" }
+
+task default: :build
+
+desc "Remove all build directories"
 task :clean do
   rm_rf "build"
 end
 
-def cmake_init
-  mkdir_p "build"
-  sh "cmake -B build"
+def cmake_init(label, cmake_board)
+  mkdir_p "build/#{label}"
+  sh "cmake -B build/#{label} -DPICO_BOARD=#{cmake_board}"
 end
 
-def cmake_ensure
-  makefile = "build/Makefile"
-  cmake_init if !File.exist?(makefile) ||
-                File.mtime("CMakeLists.txt") > File.mtime(makefile)
+def cmake_ensure(label, cmake_board)
+  makefile = "build/#{label}/Makefile"
+  cmake_init(label, cmake_board) if !File.exist?(makefile) ||
+                                    File.mtime("CMakeLists.txt") > File.mtime(makefile)
 end
