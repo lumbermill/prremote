@@ -116,14 +116,36 @@ module Prremote
       serial.write("\x03")
       buf      = +''
       deadline = Time.now + 5
+
       loop do
-        buf << (serial.read(256) || '').gsub("\r\n", "\n").gsub("\r", '')
+        begin
+          buf << (serial.read(256) || '').gsub("\r\n", "\n").gsub("\r", '')
+        rescue StandardError
+          # Watchdog reboot dropped USB; wait for re-enumeration then reopen.
+          serial.close rescue nil
+          serial = nil
+          reopen_deadline = [deadline, Time.now + 8].min
+          loop do
+            return '(not responding)' if Time.now > reopen_deadline
+
+            p = options[:port] || Detector.find_device
+            if p && File.exist?(p)
+              serial = Serial.new(p, options[:baud]) rescue nil
+              break if serial
+            end
+            sleep 0.3
+          end
+          buf = +''
+          next
+        end
+
         return ::Regexp.last_match(1) if buf =~ %r{READY prremote-runtime/([\d.]+)}
-        break if Time.now > deadline
+        return '(not responding)' if Time.now > deadline
 
         sleep 0.05
       end
-      '(not responding)'
+    rescue StandardError => e
+      "(#{e.message})"
     ensure
       serial&.close
     end

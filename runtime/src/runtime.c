@@ -159,10 +159,10 @@ static void exec_mrb(void)
 int main(void)
 {
   stdio_init_all();
-  while (!stdio_usb_connected()) sleep_ms(10);
 
-  /* On boot: if a script was previously deployed to flash, run it first. */
-  if (flash_has_script()) {
+  /* On boot: run deployed script only on clean boot, not after a Ctrl+C reset.
+   * Run before waiting for USB so the script works standalone (no host needed). */
+  if (flash_has_script() && !watchdog_caused_reboot()) {
     uint32_t size = flash_script_size();
     if (size > 0 && size <= MRB_BUFFER_SIZE) {
       memcpy(mrb_buffer,
@@ -171,6 +171,8 @@ int main(void)
       exec_mrb();
     }
   }
+
+  while (!stdio_usb_connected()) sleep_ms(10);
 
   while (1) {
     printf("READY prremote-runtime/" RUNTIME_VERSION "\n");

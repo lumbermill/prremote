@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(RUNTIME_VERSION "0.1.2")
+set(RUNTIME_VERSION "0.1.3")
 
 set(PICO_BOARD pico_w)
 include(pico_sdk_import.cmake)
