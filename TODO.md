@@ -19,9 +19,10 @@
 - [x] `samples/led.rb`    — [W] CYW43 オンボード LED 点滅
 - [x] `samples/gpio.rb`   — [*] 外部 GPIO 出力／入力
 - [x] `samples/wifi.rb`   — [W] WiFi 接続・IP 取得
-- [x] `samples/adc.rb`    — [*] アナログ入力読み取り（GPIO 26–28）
+- [　] `samples/adc.rb`    — [*] アナログ入力読み取り（GPIO 26–28）⚠️ 未接続状態でも電圧変化が激しい（ADC動作確認が必要）
 - [x] `samples/pwm.rb`    — [*] PWM で LED フェード
 - [ ] `samples/led_pico.rb` — [Pico] GPIO 25 オンボード LED 点滅（Pico 向けサンプル）
+- [ ] `samples/i2c.rb` - 温度計などとのi2c通信
 
 ## ランタイム拡張（上記サンプルの前提）
 
@@ -48,7 +49,7 @@
 - [x] 利用する mrbc のパス・バージョンを version コマンドで表示（`Mrbc` モジュールに共通化、`$MRBC` 環境変数で上書き可）
 - [ ] **将来: プラットフォームgem として mrbc バイナリを同梱**
   - `rake-compiler-dock` でmrubyをクロスコンパイルし、プラットフォーム別gemに焼き込む
-  - 対象: `x86_64-darwin`, `arm64-darwin`, `x86_64-linux`
+  - 対象: `x86_64-darwin`, `arm64-darwin`, `x86_64-linux`, `aarch64-linux`
   - 参考: nokogiri / grpc のgemspec・CI設定
 
 ## 旧コードの整理
@@ -78,11 +79,12 @@
 ### サンプル
 
 - [ ] `samples/led_pico.rb` — GPIO 25 オンボード LED（Pico 向け）
+- [ ] `samples/led.rb` は `led_picow.rb`にリネーム
 
 ## パッケージング・CI
 
 - [x] RuboCop lint パス確認（39 files, no offenses）
 - [x] CHANGELOG.md
 - [x] GitHub Actions CI を新コマンド構成に合わせて更新
-- [ ] CHANGELOG.md を 0.1.0 リリース内容に合わせて更新
-- [ ] gem リリース: `rake gem` → RubyGems.org に push
+- [x] CHANGELOG.md を 0.1.1 リリース内容に合わせて更新
+- [x] gem リリース: `rake gem` → RubyGems.org に push

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-17
+
+### Fixed
+
+- Default runtime version updated to 0.1.3 (0.1.0 shipped with 0.1.2, which is missing `undeploy` support and standalone auto-run on boot)
+- `RubySerial::Error` is now caught correctly in all commands (`run`, `deploy`, `eval`, `watch`, `reset`, `install`); previously `rescue RuntimeError` failed to catch it
+
 ## [0.1.0] - 2026-05-16
 
 ### Added
@@ -23,5 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Mrbc` module — Shared mrbc binary lookup; overridable via `$MRBC` environment variable
 - mruby/c runtime (`runtime/`) for Raspberry Pi Pico W
 
-[Unreleased]: https://github.com/picoruby/prremote/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/picoruby/prremote/releases/tag/v0.1.0
+[Unreleased]: https://github.com/lumbermill/prremote/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/lumbermill/prremote/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/lumbermill/prremote/releases/tag/v0.1.0

@@ -4,15 +4,14 @@ require 'fileutils'
 
 module Prremote
   module RuntimeManager
-    REPO  = 'lumbermill/prremote'.freeze
-    BOARD = 'picow'.freeze
+    BOARD = 'picow'
 
     def self.uf2_filename(version)
       "prremote-#{BOARD}-runtime-#{version}.uf2"
     end
 
     def self.release_url(version)
-      "https://github.com/#{REPO}/releases/download/runtime-#{version}/#{uf2_filename(version)}"
+      "https://github.com/lumbermill/prremote/releases/download/runtime-#{version}/#{uf2_filename(version)}"
     end
 
     def self.cache_dir

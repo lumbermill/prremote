@@ -142,9 +142,9 @@ Show the gem version, mrbc version, and the connected device's runtime version.
 
 ```bash
 prremote version
-# prremote: 0.1.0
+# prremote: 0.1.1
 # mrbc:     3.3.0 (/usr/local/bin/mrbc)
-# runtime:  0.1.2
+# runtime:  0.1.3
 ```
 
 ---

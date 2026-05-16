@@ -25,7 +25,7 @@ module Prremote
     def install
       version = options[:version] || RUNTIME_VERSION
       Commands::Install.new(version: version).call
-    rescue RuntimeError => e
+    rescue StandardError => e
       raise Thor::Error, e.message
     end
 
@@ -33,7 +33,7 @@ module Prremote
     def run_script(file)
       port = resolve_port
       Commands::Run.new(port: port, baud: options[:baud]).call(file)
-    rescue RuntimeError => e
+    rescue StandardError => e
       raise Thor::Error, e.message
     end
     map 'run' => :run_script
@@ -42,7 +42,7 @@ module Prremote
     def deploy(file)
       port = resolve_port
       Commands::Deploy.new(port: port, baud: options[:baud]).call(file)
-    rescue RuntimeError => e
+    rescue StandardError => e
       raise Thor::Error, e.message
     end
 
@@ -50,7 +50,7 @@ module Prremote
     def undeploy
       port = resolve_port
       Commands::Undeploy.new(port: port, baud: options[:baud]).call
-    rescue RuntimeError => e
+    rescue StandardError => e
       raise Thor::Error, e.message
     end
 
@@ -58,7 +58,7 @@ module Prremote
     def eval(expr)
       port = resolve_port
       Commands::EvalCmd.new(port: port, baud: options[:baud]).call(expr)
-    rescue RuntimeError => e
+    rescue StandardError => e
       raise Thor::Error, e.message
     end
 
@@ -66,7 +66,7 @@ module Prremote
     def watch(file)
       port = resolve_port
       Commands::Watch.new(port: port, baud: options[:baud]).call(file)
-    rescue RuntimeError => e
+    rescue StandardError => e
       raise Thor::Error, e.message
     end
 
@@ -87,7 +87,7 @@ module Prremote
       serial.write("\x03")
       sleep 0.1
       puts 'Reset signal sent.'
-    rescue RuntimeError => e
+    rescue StandardError => e
       raise Thor::Error, e.message
     ensure
       serial&.close
@@ -99,7 +99,7 @@ module Prremote
 
       begin
         puts "mrbc:     #{Mrbc.version} (#{Mrbc.bin})"
-      rescue RuntimeError => e
+      rescue StandardError => e
         puts "mrbc:     (#{e.message})"
       end
 

@@ -34,7 +34,7 @@ module Prremote
 
       def run(rb_path)
         Run.new(port: @port, baud: @baud).call(rb_path)
-      rescue RuntimeError => e
+      rescue StandardError => e
         warn "Error: #{e.message}"
       end
     end
