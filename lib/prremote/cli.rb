@@ -1,26 +1,26 @@
-require "thor"
-require "rubyserial"
-require_relative "version"
-require_relative "detector"
-require_relative "mrbc"
-require_relative "runtime_manager"
-require_relative "commands/install"
-require_relative "commands/deploy"
-require_relative "commands/undeploy"
-require_relative "commands/run"
-require_relative "commands/eval_cmd"
-require_relative "commands/watch"
+require 'thor'
+require 'rubyserial'
+require_relative 'version'
+require_relative 'detector'
+require_relative 'mrbc'
+require_relative 'runtime_manager'
+require_relative 'commands/install'
+require_relative 'commands/deploy'
+require_relative 'commands/undeploy'
+require_relative 'commands/run'
+require_relative 'commands/eval_cmd'
+require_relative 'commands/watch'
 
 module Prremote
   class CLI < Thor
-    class_option :port, aliases: "-p", desc: "Serial port (default: auto-detect)"
-    class_option :baud, aliases: "-b", type: :numeric, default: 115_200, desc: "Baud rate"
+    class_option :port, aliases: '-p', desc: 'Serial port (default: auto-detect)'
+    class_option :baud, aliases: '-b', type: :numeric, default: 115_200, desc: 'Baud rate'
 
     def self.exit_on_failure?
       true
     end
 
-    desc "install", "Flash prremote runtime firmware to Pico W"
+    desc 'install', 'Flash prremote runtime firmware to Pico W'
     option :version, type: :string, desc: "Firmware version to install (default: #{RUNTIME_VERSION})"
     def install
       version = options[:version] || RUNTIME_VERSION
@@ -29,16 +29,16 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc "run FILE", "Compile and run a Ruby script on the device (one-shot)"
+    desc 'run FILE', 'Compile and run a Ruby script on the device (one-shot)'
     def run_script(file)
       port = resolve_port
       Commands::Run.new(port: port, baud: options[:baud]).call(file)
     rescue RuntimeError => e
       raise Thor::Error, e.message
     end
-    map "run" => :run_script
+    map 'run' => :run_script
 
-    desc "deploy FILE", "Compile and save a Ruby script to flash (auto-runs on boot)"
+    desc 'deploy FILE', 'Compile and save a Ruby script to flash (auto-runs on boot)'
     def deploy(file)
       port = resolve_port
       Commands::Deploy.new(port: port, baud: options[:baud]).call(file)
@@ -46,7 +46,7 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc "undeploy", "Erase the deployed script from flash (disables auto-run on boot)"
+    desc 'undeploy', 'Erase the deployed script from flash (disables auto-run on boot)'
     def undeploy
       port = resolve_port
       Commands::Undeploy.new(port: port, baud: options[:baud]).call
@@ -54,7 +54,7 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc "eval EXPR", "Compile and run a one-liner Ruby expression on the device"
+    desc 'eval EXPR', 'Compile and run a one-liner Ruby expression on the device'
     def eval(expr)
       port = resolve_port
       Commands::EvalCmd.new(port: port, baud: options[:baud]).call(expr)
@@ -62,7 +62,7 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc "watch FILE", "Watch a Ruby file for changes and re-run on the device automatically"
+    desc 'watch FILE', 'Watch a Ruby file for changes and re-run on the device automatically'
     def watch(file)
       port = resolve_port
       Commands::Watch.new(port: port, baud: options[:baud]).call(file)
@@ -70,71 +70,69 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc "list", "Show available serial devices"
+    desc 'list', 'Show available serial devices'
     def list
       devices = Detector.new.list_devices
       if devices.empty?
-        puts "No serial devices found."
+        puts 'No serial devices found.'
       else
         devices.each { |d| puts "#{d[:port]}  (#{d[:label]})" }
       end
     end
 
-    desc "reset", "Send Ctrl+C to interrupt the running program"
+    desc 'reset', 'Send Ctrl+C to interrupt the running program'
     def reset
       port = resolve_port
       serial = Serial.new(port, options[:baud])
       serial.write("\x03")
       sleep 0.1
-      puts "Reset signal sent."
+      puts 'Reset signal sent.'
     rescue RuntimeError => e
       raise Thor::Error, e.message
     ensure
       serial&.close
     end
 
-    desc "version", "Show prremote, mrbc, and device firmware version"
+    desc 'version', 'Show prremote, mrbc, and device firmware version'
     def version
       puts "prremote: #{VERSION}"
 
       begin
         puts "mrbc:     #{Mrbc.version} (#{Mrbc.bin})"
       rescue RuntimeError => e
-        puts "mrbc: (#{e.message})"
+        puts "mrbc:     (#{e.message})"
       end
 
-      port = options[:port] || Detector.find_device
-      unless port
-        puts "runtime:  (no device connected)"
-        return
-      end
-
-      serial = Serial.new(port, options[:baud])
-      serial.write("\x03")
-
-      buf = +""
-      deadline = Time.now + 5
-      loop do
-        buf << (serial.read(256) || "").gsub("\r\n", "\n").gsub("\r", "")
-        if buf =~ /READY prremote-runtime\/([\d.]+)/
-          puts "runtime:  #{$1}"
-          return
-        end
-        break if Time.now > deadline
-        sleep 0.05
-      end
-      puts "runtime:  (not responding)"
-    ensure
-      serial&.close
+      puts "runtime:  #{fetch_runtime_version}"
     end
 
     private
+
+    def fetch_runtime_version
+      port = options[:port] || Detector.find_device
+      return '(no device connected)' unless port
+
+      serial = Serial.new(port, options[:baud])
+      serial.write("\x03")
+      buf      = +''
+      deadline = Time.now + 5
+      loop do
+        buf << (serial.read(256) || '').gsub("\r\n", "\n").gsub("\r", '')
+        return ::Regexp.last_match(1) if buf =~ %r{READY prremote-runtime/([\d.]+)}
+        break if Time.now > deadline
+
+        sleep 0.05
+      end
+      '(not responding)'
+    ensure
+      serial&.close
+    end
 
     def resolve_port
       return options[:port] if options[:port]
 
       port = Detector.find_device
-      raise Thor::Error, "No device found. Use --port to specify one." unless port
+      raise Thor::Error, 'No device found. Use --port to specify one.' unless port
 
       port
     end

@@ -1,6 +1,6 @@
-require "open3"
-require "tempfile"
-require_relative "../mrbc"
+require 'open3'
+require 'tempfile'
+require_relative '../mrbc'
 
 module Prremote
   module Commands
@@ -16,15 +16,15 @@ module Prremote
         warn "Compiling #{rb_path}..."
         mrb_data = compile(rb_path)
 
-        warn "Running..."
+        warn 'Running...'
         run_on_device(mrb_data)
       end
 
       private
 
       def compile(rb_path)
-        tmp = Tempfile.new(["prremote", ".mrb"])
-        out, status = Open3.capture2e(Mrbc.bin, "-o", tmp.path, rb_path)
+        tmp = Tempfile.new(['prremote', '.mrb'])
+        out, status = Open3.capture2e(Mrbc.bin, '-o', tmp.path, rb_path)
         raise "mrbc failed:\n#{out.chomp}" unless status.success?
 
         File.binread(tmp.path)
@@ -35,7 +35,7 @@ module Prremote
       def run_on_device(mrb_data)
         serial = Serial.new(@port, @baud)
         sleep 0.5
-        drained = serial.read(4096) || ""
+        drained = serial.read(4096) || ''
         debug "drained #{drained.bytesize} bytes: #{drained.inspect}"
 
         serial.write(mrb_data)
@@ -48,10 +48,10 @@ module Prremote
       end
 
       def wait_for_running(serial)
-        buf = +""
+        buf = +''
         deadline = Time.now + 10
         loop do
-          chunk = normalize(serial.read(256) || "")
+          chunk = normalize(serial.read(256) || '')
           unless chunk.empty?
             debug "recv: #{chunk.inspect}"
             buf << chunk
@@ -62,16 +62,16 @@ module Prremote
             return buf[(idx + "RUNNING\n".length)..]
           end
 
-          raise "Timeout waiting for device to start execution" if Time.now > deadline
+          raise 'Timeout waiting for device to start execution' if Time.now > deadline
 
           sleep 0.05
         end
       end
 
-      def stream_until_done(serial, initial = +"")
+      def stream_until_done(serial, initial = +'')
         buf = initial
         loop do
-          buf << normalize(serial.read(256) || "")
+          buf << normalize(serial.read(256) || '')
 
           if (done_pos = buf.index("DONE\n"))
             $stdout.print buf[0, done_pos] unless done_pos.zero?
@@ -91,11 +91,11 @@ module Prremote
       end
 
       def normalize(str)
-        str.gsub("\r\n", "\n").gsub("\r", "")
+        str.gsub("\r\n", "\n").gsub("\r", '')
       end
 
       def debug(msg)
-        warn "[debug] #{msg}" if ENV["PRREMOTE_DEBUG"]
+        warn "[debug] #{msg}" if ENV['PRREMOTE_DEBUG']
       end
     end
   end

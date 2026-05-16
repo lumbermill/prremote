@@ -1,5 +1,5 @@
-require "tempfile"
-require_relative "run"
+require 'tempfile'
+require_relative 'run'
 
 module Prremote
   module Commands
@@ -10,7 +10,7 @@ module Prremote
       end
 
       def call(expr)
-        tmp = Tempfile.new(["prremote_eval", ".rb"])
+        tmp = Tempfile.new(['prremote_eval', '.rb'])
         tmp.write(expr)
         tmp.flush
         Run.new(port: @port, baud: @baud).call(tmp.path)

@@ -1,14 +1,35 @@
 AllCops:
   NewCops: enable
   TargetRubyVersion: 3.1
+  SuggestExtensions: false
   Exclude:
     - "vendor/**/*"
+    - "wk/**/*"
+    - "runtime/**/*"
 
 Style/Documentation:
   Enabled: false
 
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Style/StringLiterals:
+  Enabled: false
+
+Style/StringLiteralsInInterpolation:
+  Enabled: false
+
 Metrics/MethodLength:
   Max: 30
+
+Metrics/AbcSize:
+  Max: 25
+
+Metrics/ClassLength:
+  Max: 110
+
+Metrics/CyclomaticComplexity:
+  Max: 9
 
 Metrics/BlockLength:
   Exclude:
@@ -16,3 +37,9 @@ Metrics/BlockLength:
 
 Layout/LineLength:
   Max: 120
+
+Gemspec/DevelopmentDependencies:
+  Enabled: false
+
+Gemspec/RequiredRubyVersion:
+  Enabled: false

@@ -1,4 +1,4 @@
-require_relative "run"
+require_relative 'run'
 
 module Prremote
   module Commands

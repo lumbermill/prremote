@@ -1,8 +1,8 @@
-require "rbconfig"
+require 'rbconfig'
 
 module Prremote
   class Detector
-    R2P2_VENDOR_IDS = %w[2e8a].freeze  # Raspberry Pi USB VID
+    R2P2_VENDOR_IDS = %w[2e8a].freeze # Raspberry Pi USB VID
 
     def self.find_device
       new.find_device
@@ -18,7 +18,7 @@ module Prremote
 
     def list_devices
       serial_ports.map do |port|
-        label = r2p2_port?(port) ? "R2P2/PicoRuby" : "unknown"
+        label = r2p2_port?(port) ? 'R2P2/PicoRuby' : 'unknown'
         { port: port, label: label }
       end
     end
@@ -26,15 +26,15 @@ module Prremote
     private
 
     def serial_ports
-      case RbConfig::CONFIG["host_os"]
+      case RbConfig::CONFIG['host_os']
       when /darwin/
         # Use cu.* (call-out) devices — tty.* blocks on carrier and causes EBUSY
-        Dir.glob("/dev/cu.usbmodem*") + Dir.glob("/dev/cu.usbserial*")
+        Dir.glob('/dev/cu.usbmodem*') + Dir.glob('/dev/cu.usbserial*')
       when /linux/
-        Dir.glob("/dev/ttyACM*") + Dir.glob("/dev/ttyUSB*")
+        Dir.glob('/dev/ttyACM*') + Dir.glob('/dev/ttyUSB*')
       when /mswin|mingw|cygwin/
         # Enumerate COM ports via registry on Windows
-        require "win32/registry"
+        require 'win32/registry'
         ports = []
         Win32::Registry::HKEY_LOCAL_MACHINE.open('HARDWARE\DEVICEMAP\SERIALCOMM') do |reg|
           reg.each_value { |_name, _type, data| ports << data }
@@ -47,7 +47,7 @@ module Prremote
 
     def r2p2_port?(port)
       # On macOS/Linux, check sysfs or ioreg for the Raspberry Pi VID
-      case RbConfig::CONFIG["host_os"]
+      case RbConfig::CONFIG['host_os']
       when /darwin/
         ioreg_output = `ioreg -p IOUSB -l 2>/dev/null`
         R2P2_VENDOR_IDS.any? { |vid| ioreg_output.include?(vid) } &&

@@ -1,4 +1,4 @@
-require "fileutils"
+require 'fileutils'
 
 module Prremote
   module Commands
@@ -10,18 +10,18 @@ module Prremote
       def call
         uf2_path = RuntimeManager.fetch(@version)
 
-        puts "Put the Pico W into BOOTSEL mode:"
-        puts "  1. Hold the BOOTSEL button"
-        puts "  2. Connect USB (or press RUN while holding BOOTSEL)"
-        puts "  3. Release BOOTSEL — RPI-RP2 should appear as a USB drive"
+        puts 'Put the Pico W into BOOTSEL mode:'
+        puts '  1. Hold the BOOTSEL button'
+        puts '  2. Connect USB (or press RUN while holding BOOTSEL)'
+        puts '  3. Release BOOTSEL — RPI-RP2 should appear as a USB drive'
         puts
-        puts "Waiting for RPI-RP2..."
+        puts 'Waiting for RPI-RP2...'
 
         volume = wait_for_volume
         puts "Copying firmware to #{volume}..."
         FileUtils.cp(uf2_path, File.join(volume, File.basename(uf2_path)))
 
-        puts "Waiting for device to reboot..."
+        puts 'Waiting for device to reboot...'
         wait_for_unmount(volume)
 
         puts "Done. Runtime #{@version} installed."
@@ -31,9 +31,9 @@ module Prremote
 
       def volume_paths
         [
-          "/Volumes/RPI-RP2",
-          "/run/media/#{ENV["USER"]}/RPI-RP2",
-          "/media/#{ENV["USER"]}/RPI-RP2",
+          '/Volumes/RPI-RP2',
+          "/run/media/#{ENV.fetch('USER', nil)}/RPI-RP2",
+          "/media/#{ENV.fetch('USER', nil)}/RPI-RP2"
         ]
       end
 

@@ -1,4 +1,4 @@
-require_relative "../test_helper"
+require_relative '../test_helper'
 
 class FakeSerialErase
   attr_reader :written
@@ -9,25 +9,25 @@ class FakeSerialErase
   end
 
   def write(data) = @written << data
-  def read(_n)    = @responses.shift || ""
+  def read(_len)  = @responses.shift || ''
   def close       = nil
 end
 
 class UndeployCommandTest < Minitest::Test
   def test_sends_erse_magic
-    fake = FakeSerialErase.new(["", "ERASED\n"])
-    cmd  = Prremote::Commands::Undeploy.new(port: "/dev/null", baud: 115_200)
+    fake = FakeSerialErase.new(['', "ERASED\n"])
+    cmd  = Prremote::Commands::Undeploy.new(port: '/dev/null', baud: 115_200)
 
     Serial.stub(:new, fake) do
       cmd.stub(:sleep, nil) { cmd.call }
     end
 
-    assert_includes fake.written, "ERSE"
+    assert_includes fake.written, 'ERSE'
   end
 
   def test_raises_on_timeout
     fake = FakeSerialErase.new
-    cmd  = Prremote::Commands::Undeploy.new(port: "/dev/null", baud: 115_200)
+    cmd  = Prremote::Commands::Undeploy.new(port: '/dev/null', baud: 115_200)
 
     Serial.stub(:new, fake) do
       cmd.stub(:sleep, nil) do

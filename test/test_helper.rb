@@ -1,3 +1,3 @@
-require "minitest/autorun"
-require "minitest/mock"
-require "prremote"
+require 'minitest/autorun'
+require 'minitest/mock'
+require 'prremote'
