@@ -23,6 +23,23 @@ task build: BOARDS.keys.map { |b| :"build:#{b}" }
 
 task default: :build
 
+desc "Create draft GitHub release runtime-#{RUNTIME_VERSION} with UF2 assets for all boards"
+task release: :build do
+  tag    = "runtime-#{RUNTIME_VERSION}"
+  title  = "Runtime #{RUNTIME_VERSION}"
+  assets = BOARDS.keys.map do |label|
+    "build/#{label}/prremote-#{label}-runtime-#{RUNTIME_VERSION}.uf2"
+  end
+
+  missing = assets.reject { |f| File.exist?(f) }
+  abort "Missing assets:\n#{missing.map { |f| "  #{f}" }.join("\n")}\nRun `rake build` first." unless missing.empty?
+
+  sh "gh release create #{tag} #{assets.join(' ')} --title #{title} --draft --generate-notes"
+  puts
+  puts "Draft release created. Edit notes and publish at:"
+  puts "  https://github.com/lumbermill/prremote/releases/tag/#{tag}"
+end
+
 desc "Remove all build directories"
 task :clean do
   rm_rf "build"
