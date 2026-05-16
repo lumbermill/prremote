@@ -7,7 +7,7 @@ adc = ADC.new(26)
 puts "Reading ADC0 (GPIO26) — 10 samples:"
 10.times do |i|
   val  = adc.read
-  volt = val * 3.3 / 65535
+  volt = val * 3.3 / 65_535
   puts "#{i}: #{val} (#{volt} V)"
   sleep 0.5
 end

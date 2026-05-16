@@ -14,7 +14,7 @@ end
 btn = GPIO.new(14, GPIO::IN_PULLUP)
 puts "Press the button (reading for 5 s)..."
 50.times do
-  if btn.read == 0
+  if btn.read.zero?
     puts "pressed"
     led.write 1
   else

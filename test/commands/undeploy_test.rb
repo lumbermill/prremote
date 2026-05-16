@@ -15,14 +15,14 @@ end
 
 class UndeployCommandTest < Minitest::Test
   def test_sends_erse_magic
-    fake = FakeSerialErase.new(['', "ERASED\n"])
+    fake = FakeSerialErase.new(["READY prremote-runtime/0.1.3\n", "ERASED\n"])
     cmd  = Prremote::Commands::Undeploy.new(port: '/dev/null', baud: 115_200)
 
     Serial.stub(:new, fake) do
       cmd.stub(:sleep, nil) { cmd.call }
     end
 
-    assert_includes fake.written, 'ERSE'
+    assert_equal ["\x03", 'ERSE'], fake.written
   end
 
   def test_raises_on_timeout

@@ -31,15 +31,17 @@
 
 ## ランタイム既知の問題
 
-- [ ] **`puts` 出力がリアルタイムに届かない**: mruby/c の標準出力（`mrbc_putchar` / `console_putchar`）が USB CDC バッファに溜まり、`DONE` 直前にまとめて流れてくる。対策候補:
-  - `hal.c` の `mrbc_putchar` 内で `stdio_flush()` を毎回呼ぶ
-  - Ruby 側で `$stdout.flush` 相当のバインディングを追加し、ループ末尾で呼ぶ
+- [ ] **`puts` 出力がリアルタイムに届かない**: `mrbc_hal_flush` で `stdio_flush()` を呼ぶよう修正済みだが効果が不十分。USB CDC のバッファリング挙動が原因と思われる。追加対策候補:
   - `pico_enable_stdio_usb` の送信タイムアウトを短くする（`PICO_STDIO_USB_STDOUT_TIMEOUT_US`）
+  - Ruby 側で `$stdout.flush` バインディングを追加しユーザーが明示的に呼べるようにする
 
 ## ランタイム (runtime/)
 
-- [ ] **ファームウェア再ビルド・再書き込みが必要**: `undeploy`（`ERSE`）の追加はランタイム変更を含む。現行デバイスには `prremote install` で新ファームを焼き直す必要あり。
-- [ ] version プローブ対応: デバイスが実行中でも特定バイトに `READY` を返す仕組み（現状はアイドル時のみ取得可能）
+- [x] `undeploy`（`ERSE`）対応: runtime 0.1.3 でリリース済み
+- [x] deploy スクリプトのスタンドアロン自動実行: USB ホスト不要で起動時に実行（runtime 0.1.3）
+- [x] `\x03` リセット後の誤自動実行を防止: `watchdog_caused_reboot()` チェック追加（runtime 0.1.3）
+- [ ] `version` プローブ改善: デバイスがスクリプト実行中の場合 `version` コマンドが ~10 秒かかる。`\x03` → リブート → 再接続の待機が発生するため。スクリプト実行中でも即座に応答できる仕組みが理想
+- [ ] `RubySerial::Error` が各コマンドの `rescue RuntimeError` で捕まらない: `run` / `deploy` / `eval` / `watch` / `reset` のエラーハンドリングが不完全。`rescue StandardError` に統一すべき
 
 ## mrbc の扱い
 
@@ -79,6 +81,8 @@
 
 ## パッケージング・CI
 
-- [x] RuboCop lint パス確認（22 files, no offenses）
+- [x] RuboCop lint パス確認（39 files, no offenses）
 - [x] CHANGELOG.md
 - [x] GitHub Actions CI を新コマンド構成に合わせて更新
+- [ ] CHANGELOG.md を 0.1.0 リリース内容に合わせて更新
+- [ ] gem リリース: `rake gem` → RubyGems.org に push

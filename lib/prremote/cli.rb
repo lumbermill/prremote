@@ -108,7 +108,7 @@ module Prremote
 
     private
 
-    def fetch_runtime_version
+    def fetch_runtime_version # rubocop:disable Metrics/MethodLength,Metrics/AbcSize,Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
       port = options[:port] || Detector.find_device
       return '(no device connected)' unless port
 
@@ -122,7 +122,11 @@ module Prremote
           buf << (serial.read(256) || '').gsub("\r\n", "\n").gsub("\r", '')
         rescue StandardError
           # Watchdog reboot dropped USB; wait for re-enumeration then reopen.
-          serial.close rescue nil
+          begin
+            serial.close
+          rescue StandardError
+            nil
+          end
           serial = nil
           reopen_deadline = [deadline, Time.now + 8].min
           loop do
@@ -130,7 +134,11 @@ module Prremote
 
             p = options[:port] || Detector.find_device
             if p && File.exist?(p)
-              serial = Serial.new(p, options[:baud]) rescue nil
+              serial = begin
+                Serial.new(p, options[:baud])
+              rescue StandardError
+                nil
+              end
               break if serial
             end
             sleep 0.3

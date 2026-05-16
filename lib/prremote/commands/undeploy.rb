@@ -20,13 +20,17 @@ module Prremote
         wait_for_erased(serial)
         warn 'Flash erased. Device will no longer auto-run a script on boot.'
       ensure
-        serial&.close rescue nil
+        begin
+          serial&.close
+        rescue StandardError
+          nil
+        end
       end
 
       private
 
       # Returns the serial object in READY state (may be a new object after reboot).
-      def wait_for_ready(serial)
+      def wait_for_ready(serial) # rubocop:disable Metrics/MethodLength,Metrics/AbcSize,Metrics/CyclomaticComplexity,Metrics/PerceivedComplexity
         buf      = +''
         deadline = Time.now + 10
         loop do
@@ -34,7 +38,11 @@ module Prremote
             buf << (serial.read(256) || '').gsub("\r\n", "\n").gsub("\r", '')
           rescue StandardError
             # Watchdog reboot dropped USB; wait for device to re-enumerate.
-            serial.close rescue nil
+            begin
+              serial.close
+            rescue StandardError
+              nil
+            end
             serial = nil
             reopen_deadline = [deadline, Time.now + 8].min
             loop do

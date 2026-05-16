@@ -6,7 +6,7 @@ CYW43.init
 puts "Connecting to #{SSID}..."
 
 status = CYW43::WiFi.connect(SSID, PASSWORD, timeout: 15_000)
-if status == 0
+if status.zero?
   puts "Connected!"
   puts "IP:      #{CYW43::WiFi.ip_address}"
   puts "Netmask: #{CYW43::WiFi.netmask}"

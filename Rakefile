@@ -2,8 +2,7 @@ require 'rake/testtask'
 require 'rubygems/package_task'
 
 spec = Gem::Specification.load('prremote.gemspec')
-Gem::PackageTask.new(spec) { |_pkg| }
-
+Gem::PackageTask.new(spec) { |_pkg| } # rubocop:disable Lint/EmptyBlock
 
 Rake::TestTask.new(:test) do |t|
   t.libs << 'lib' << 'test'
