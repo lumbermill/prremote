@@ -5,10 +5,9 @@ Gem::Specification.new do |spec|
   spec.version     = Prremote::VERSION
   spec.authors     = ['ITO Yosei']
   spec.email       = ['y-itou@lumber-mill.co.jp']
-  spec.summary     = 'CLI tool for remotely interacting with PicoRuby/R2P2 devices over serial'
-  spec.description = 'Compile and run mruby/c scripts on a Raspberry Pi Pico W over USB serial. ' \
-                     'Inspired by mpremote for MicroPython.'
-  spec.homepage    = 'https://github.com/picoruby/prremote'
+  spec.summary     = 'CLI tool for deploying and running mruby/c scripts on a Raspberry Pi Pico W over USB serial'
+  spec.description = 'Compile and run mruby/c scripts on a Raspberry Pi Pico W over USB serial.'
+  spec.homepage    = 'https://github.com/lumbermill/prremote'
   spec.license     = 'MIT'
 
   spec.required_ruby_version = '>= 3.4'

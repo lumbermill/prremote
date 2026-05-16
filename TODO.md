@@ -29,6 +29,13 @@
 - [x] `ADC` C バインディング＋Rubyクラス追加（`hardware_adc`）
 - [x] `PWM` C バインディング＋Rubyクラス追加（`hardware_pwm`）
 
+## ランタイム既知の問題
+
+- [ ] **`puts` 出力がリアルタイムに届かない**: mruby/c の標準出力（`mrbc_putchar` / `console_putchar`）が USB CDC バッファに溜まり、`DONE` 直前にまとめて流れてくる。対策候補:
+  - `hal.c` の `mrbc_putchar` 内で `stdio_flush()` を毎回呼ぶ
+  - Ruby 側で `$stdout.flush` 相当のバインディングを追加し、ループ末尾で呼ぶ
+  - `pico_enable_stdio_usb` の送信タイムアウトを短くする（`PICO_STDIO_USB_STDOUT_TIMEOUT_US`）
+
 ## ランタイム (runtime/)
 
 - [ ] **ファームウェア再ビルド・再書き込みが必要**: `undeploy`（`ERSE`）の追加はランタイム変更を含む。現行デバイスには `prremote install` で新ファームを焼き直す必要あり。

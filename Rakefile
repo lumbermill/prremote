@@ -1,4 +1,9 @@
 require 'rake/testtask'
+require 'rubygems/package_task'
+
+spec = Gem::Specification.load('prremote.gemspec')
+Gem::PackageTask.new(spec) { |_pkg| }
+
 
 Rake::TestTask.new(:test) do |t|
   t.libs << 'lib' << 'test'

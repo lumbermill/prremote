@@ -12,7 +12,7 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 
 - Ruby 3.x or later
 - Raspberry Pi Pico W
-- `mrbc` in your PATH (for `deploy` and `eval`) — install via `brew install mruby` on macOS
+- `mrbc` in your PATH (for `run`, `deploy`, and `eval`) — install via `brew install mruby` on macOS
 
 ---
 
@@ -33,8 +33,8 @@ prremote install
 # 2. Write your app
 echo 'puts "Hello from Pico W!"' > app.rb
 
-# 3. Deploy and run
-prremote deploy app.rb
+# 3. Run it
+prremote run app.rb
 ```
 
 ---
@@ -56,16 +56,38 @@ Put the Pico W into BOOTSEL mode (hold BOOTSEL, connect USB, release) when promp
 
 ---
 
+### `run FILE`
+
+Compile a local `.rb` file to mruby bytecode and run it on the device immediately (one-shot).
+
+```bash
+prremote run app.rb
+prremote run blink.rb --port /dev/tty.usbmodem101
+```
+
+The device responds with `RUNNING`, streams any output, then `DONE`.
+
+---
+
 ### `deploy FILE`
 
-Compile a local `.rb` file to mruby bytecode and send it to the device for immediate execution.
+Compile a local `.rb` file and save it to the device's flash. The script runs automatically on every boot.
 
 ```bash
 prremote deploy app.rb
-prremote deploy blink.rb --port /dev/tty.usbmodem101
 ```
 
-The device responds with `RUNNING`, streams any output, then `DONE`. If the program loops forever, use `prremote reset` to stop it.
+The device responds with `DEPLOYED` when the write is complete.
+
+---
+
+### `undeploy`
+
+Erase the deployed script from flash. After this, the device boots into idle mode.
+
+```bash
+prremote undeploy
+```
 
 ---
 
@@ -82,19 +104,17 @@ prremote eval "CYW43.init; CYW43::GPIO.new(CYW43::GPIO::LED_PIN).write 1"
 
 ### `reset`
 
-Interrupt a running program and reboot the device.
+Send `Ctrl+C` to interrupt a running program.
 
 ```bash
 prremote reset
 ```
 
-Sends `Ctrl+C` (`0x03`) over the serial connection. The runtime's watchdog fires within 1 ms and the device restarts, ready for the next `deploy`.
-
 ---
 
 ### `watch FILE`
 
-Watch a local file for changes and automatically run `deploy` + `reset` on every save.
+Watch a local file for changes and automatically re-run it on the device on every save.
 
 ```bash
 prremote watch app.rb
@@ -116,12 +136,13 @@ prremote list
 
 ### `version`
 
-Show the gem version and, if a device is connected and idle, its runtime version.
+Show the gem version, mrbc version, and the connected device's runtime version.
 
 ```bash
 prremote version
-# prremote 0.1.0
-# Device runtime: 0.1.1
+# prremote: 0.1.0
+# mrbc:     3.3.0 (/usr/local/bin/mrbc)
+# runtime:  0.1.2
 ```
 
 ---
@@ -142,11 +163,15 @@ prremote version
 prremote install
 
 # Manual cycle
-prremote deploy app.rb    # compile + send + run
-prremote reset            # stop running program
+prremote run app.rb       # compile + run (one-shot)
+prremote reset            # interrupt a running program
 
 # Automated cycle (recommended)
-prremote watch app.rb     # auto-deploy on every file save
+prremote watch app.rb     # auto-run on every file save
+
+# Persistent deployment (auto-runs on boot)
+prremote deploy app.rb
+prremote undeploy         # remove from flash
 ```
 
 ---
@@ -156,11 +181,12 @@ prremote watch app.rb     # auto-deploy on every file save
 prremote flashes a minimal C firmware (built on mruby/c) onto the Pico W. The firmware:
 
 1. Waits for a USB serial connection and sends `READY prremote-runtime/VERSION`
-2. Receives compiled mruby bytecode (`.mrb`) from the host
-3. Executes it with the mruby/c VM and streams output back
-4. Waits for the next deploy
+2. Receives a command from the host:
+   - Raw `.mrb` bytecode → execute immediately and stream output (`run` / `eval` / `watch`)
+   - `DPLY` + `.mrb` bytecode → save to flash and confirm with `DEPLOYED` (`deploy`)
+3. Waits for the next command
 
-There is no persistent file storage — every `deploy` starts a fresh execution. GPIO and WiFi (CYW43) C bindings are available in Ruby code running on the device.
+Scripts saved via `deploy` are stored in flash and run automatically on every boot. GPIO and WiFi (CYW43) C bindings are available in Ruby code running on the device.
 
 ---
 
@@ -173,4 +199,5 @@ There is no persistent file storage — every `deploy` starts a fresh execution.
 ## Related Projects
 
 - [mruby/c](https://github.com/mrubyc/mrubyc) — Lightweight mruby implementation used in the runtime
+- [picotool](https://github.com/raspberrypi/picotool) — Official Raspberry Pi tool for inspecting and managing Pico devices; useful for checking what's on flash or force-rebooting outside of prremote
 - [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) — MicroPython equivalent (inspiration)
