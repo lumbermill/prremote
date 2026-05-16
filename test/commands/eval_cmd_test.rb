@@ -1,20 +1,31 @@
-require_relative "../test_helper"
+require_relative '../test_helper'
 
 class EvalCmdTest < Minitest::Test
-  def test_delegates_to_eval_ruby
-    conn = FakeConnection.new("3")
-    Prremote::Commands::EvalCmd.new(conn).call("1 + 2")
-    assert_equal ["1 + 2"], conn.eval_calls
+  def test_writes_expression_to_temp_file_and_runs
+    received_content = nil
+
+    Prremote::Commands::Run.stub(:new, lambda { |**_|
+      obj = Object.new
+      obj.define_singleton_method(:call) { |path| received_content = File.read(path) }
+      obj
+    }) do
+      Prremote::Commands::EvalCmd.new(port: '/dev/null', baud: 115_200).call('puts 42')
+    end
+
+    assert_equal 'puts 42', received_content
   end
 
-  def test_returns_eval_result
-    conn = FakeConnection.new("42")
-    result = Prremote::Commands::EvalCmd.new(conn).call("6 * 7")
-    assert_equal "42", result
-  end
+  def test_temp_file_is_cleaned_up
+    saved_path = nil
 
-  def test_empty_expression_returns_empty_string
-    conn = FakeConnection.new("")
-    assert_equal "", Prremote::Commands::EvalCmd.new(conn).call("")
+    Prremote::Commands::Run.stub(:new, lambda { |**_|
+      obj = Object.new
+      obj.define_singleton_method(:call) { |path| saved_path = path }
+      obj
+    }) do
+      Prremote::Commands::EvalCmd.new(port: '/dev/null', baud: 115_200).call('1 + 1')
+    end
+
+    refute File.exist?(saved_path), 'Tempfile should be deleted after call'
   end
 end

@@ -1,0 +1,27 @@
+RUNTIME_VERSION = File.read("CMakeLists.txt")[/set\(RUNTIME_VERSION "([^"]+)"\)/, 1]
+UF2_NAME = "prremote-picow-runtime-#{RUNTIME_VERSION}.uf2"
+
+task default: :runtime
+
+desc "Make build/#{UF2_NAME}"
+task :runtime do
+  cmake_ensure
+  sh "make -C build runtime"
+  puts "Output: build/#{UF2_NAME}"
+end
+
+desc "Remove build directory"
+task :clean do
+  rm_rf "build"
+end
+
+def cmake_init
+  mkdir_p "build"
+  sh "cmake -B build"
+end
+
+def cmake_ensure
+  makefile = "build/Makefile"
+  cmake_init if !File.exist?(makefile) ||
+                File.mtime("CMakeLists.txt") > File.mtime(makefile)
+end
