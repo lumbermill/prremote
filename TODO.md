@@ -35,5 +35,5 @@
 ## パッケージング・CI
 
 - [x] RuboCop lint パス確認（22 files, no offenses）
-- [ ] CHANGELOG.md
-- [ ] GitHub Actions CI を新コマンド構成に合わせて更新
+- [x] CHANGELOG.md
+- [x] GitHub Actions CI を新コマンド構成に合わせて更新
