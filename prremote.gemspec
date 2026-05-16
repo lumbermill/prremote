@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.homepage    = 'https://github.com/picoruby/prremote'
   spec.license     = 'MIT'
 
-  spec.required_ruby_version = '>= 3.0'
+  spec.required_ruby_version = '>= 3.4'
 
   spec.files         = Dir['lib/**/*.rb', 'bin/*', 'LICENSE', 'README.md']
   spec.bindir        = 'bin'
