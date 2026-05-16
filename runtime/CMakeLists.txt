@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(RUNTIME_VERSION "0.1.1")
+set(RUNTIME_VERSION "0.1.2")
 
 set(PICO_BOARD pico_w)
 include(pico_sdk_import.cmake)
@@ -10,6 +10,22 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
+
+# Find mrbc for compiling Ruby wrappers — skip rbenv shims which shadow the binary
+if(DEFINED ENV{MRBC})
+  set(MRBC_EXECUTABLE "$ENV{MRBC}")
+else()
+  find_program(MRBC_EXECUTABLE mrbc
+    PATHS /opt/homebrew/bin /usr/local/bin /usr/bin
+    NO_DEFAULT_PATH
+  )
+  if(NOT MRBC_EXECUTABLE)
+    find_program(MRBC_EXECUTABLE mrbc)
+  endif()
+endif()
+if(NOT MRBC_EXECUTABLE)
+  message(FATAL_ERROR "mrbc not found. Install mruby: brew install mruby")
+endif()
 
 add_compile_options(-DMRBC_USE_HAL_RP2040 -DMRBC_REQUIRE_32BIT_ALIGNMENT -DMAX_REGS_SIZE=256 -DMAX_SYMBOLS_COUNT=500)
 
@@ -57,11 +73,38 @@ add_custom_target(mrblib
   DEPENDS ${CMAKE_SOURCE_DIR}/mrubyc/src/mrblib.c
 )
 
+# Map cmake PICO_BOARD to the gem's naming convention (no underscores)
+string(REPLACE "_" "" RUNTIME_BOARD "${PICO_BOARD}")
+
+# --- Board-specific sources, defines, and libraries ---
+set(BOARD_SOURCES "")
+set(BOARD_DEFINES "")
+set(BOARD_LIBS   "")
+set(BOARD_DEPS   "")
+
+if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
+  add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.h
+    COMMAND ${MRBC_EXECUTABLE} -B cyw43_wrap -o ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.h
+            ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.rb
+    DEPENDS ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.rb
+    COMMENT "Compiling cyw43_wrap.rb → cyw43_wrap.h"
+  )
+  add_custom_target(cyw43_wrap_h DEPENDS ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.h)
+
+  list(APPEND BOARD_SOURCES ${CMAKE_SOURCE_DIR}/src/bindings_cyw43.c)
+  list(APPEND BOARD_DEFINES HAS_CYW43=1)
+  list(APPEND BOARD_LIBS   pico_cyw43_arch_lwip_threadsafe_background)
+  list(APPEND BOARD_DEPS   cyw43_wrap_h)
+endif()
+
 # --- Runtime: reflash-once firmware, receives .mrb via USB serial ---
-# Build:  make runtime   (or: rake runtime)
-# Output: build/runtime.uf2
+# Build:  cmake --build build --target runtime
+# Output: build/prremote-<board>-runtime-<version>.uf2
 add_executable(runtime
   ${CMAKE_SOURCE_DIR}/src/runtime.c
+  ${CMAKE_SOURCE_DIR}/src/bindings.c
+  ${BOARD_SOURCES}
   ${MRUBYC_SOURCES}
 )
 target_include_directories(runtime PRIVATE
@@ -70,18 +113,19 @@ target_include_directories(runtime PRIVATE
   ${CMAKE_SOURCE_DIR}/src
 )
 set_target_properties(runtime PROPERTIES
-  OUTPUT_NAME "prremote-picow-runtime-${RUNTIME_VERSION}"
+  OUTPUT_NAME "prremote-${RUNTIME_BOARD}-runtime-${RUNTIME_VERSION}"
 )
 target_compile_definitions(runtime PRIVATE
   MRBC_SCHEDULER_EXIT=1
   RUNTIME_VERSION="${RUNTIME_VERSION}"
+  ${BOARD_DEFINES}
 )
-add_dependencies(runtime autogen mrblib)
+add_dependencies(runtime autogen mrblib ${BOARD_DEPS})
 target_link_libraries(runtime
   pico_stdlib
-  pico_cyw43_arch_lwip_threadsafe_background
   hardware_gpio
   hardware_watchdog
+  ${BOARD_LIBS}
 )
 pico_enable_stdio_usb(runtime 1)
 pico_enable_stdio_uart(runtime 0)

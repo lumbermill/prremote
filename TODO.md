@@ -1,39 +1,36 @@
 # prremote TODO
 
-## セットアップ
-- [x] gemspec作成
-- [x] Gemfile作成
-- [x] ディレクトリ構造の構築 (lib/, bin/, test/)
-- [x] bin/prremote エントリーポイント作成
-
-## コア実装
-- [x] シリアルポート自動検出 (`lib/prremote/detector.rb`)
-- [x] シリアル通信基盤 (`lib/prremote/connection.rb`)
-- [x] CLIエントリーポイント (`lib/prremote/cli.rb`)
-
 ## コマンド実装
-- [x] `repl` — インタラクティブREPL
-- [x] `ls [path]` — ファイル一覧
-- [x] `put <local> [remote]` — アップロード
-- [x] `get <remote> [local]` — ダウンロード
-- [x] `run <file.rb>` — スクリプト実行
-- [x] `eval <expr>` — 式評価
-- [x] `rm <path>` — ファイル削除
-- [x] `mkdir <path>` — ディレクトリ作成
-- [x] `version` — バージョン表示
-- [x] `list` — 接続可能デバイス一覧
-- [ ] `cp` - デバイス上でコピー
-- [ ] `watch <file.rb>` - ファイルを監視して変更時に自動でputして実行
 
-## テスト (Minitest)
-- [x] test/test_helper.rb
-- [x] detector のテスト
-- [x] connection のテスト
-- [x] 各コマンドのテスト (ls/put/get/run/eval/rm/mkdir)
+- [x] `install` — UF2ダウンロード（初回）＋キャッシュ＋BOOTSEL書き込み
+- [x] `list`    — シリアルデバイス一覧
+- [x] `version` — gemバージョン＋デバイスランタイムバージョン（ベストエフォート）
+- [x] `deploy FILE` — `.rb` → `.mrb` コンパイル＋シリアル送信＋RUNNING/DONE待機
+- [ ] `eval EXPR`   — ワンライナーを一時ファイルに書いて deploy と同じ流れ
+- [ ] `reset`       — シリアルに `0x03` を送信してデバイスをリブート
+- [ ] `watch FILE`  — ファイル変更監視 → auto deploy + reset
 
-## パッケージング
-- [x] LICENSE
-- [x] CI設定 (.github/workflows/ci.yml)
-- [x] RuboCop設定 (.rubocop.yml)
-- [ ] CHANGELOG.md
+## ランタイム (runtime/)
+
+- [ ] version コマンドのためのプローブ対応: デバイスが実行中でも `0x03` 以外の特定バイトに READY を返す仕組み（現状はデバイスアイドル時のみ取得可能）
+
+## mrbc の扱い
+
+- 現状: PATH上の `mrbc` を使う（ユーザーが `brew install mruby` 等で用意）
+- [ ] **将来: プラットフォームgem として mrbc バイナリを同梱**
+  - `rake-compiler-dock` でmrubyをクロスコンパイルし、プラットフォーム別gemに焼き込む
+  - 対象: `x86_64-darwin`, `arm64-darwin`, `x86_64-linux`
+  - 参考: nokogiri / grpc のgemspec・CI設定
+  - これにより `gem install prremote` だけで mrbc が手に入る
+
+## 旧コードの整理
+
+- [ ] 旧コマンド群（`ls` / `put` / `get` / `run` / `rm` / `mkdir` / `repl` / `irb` / `open`）を削除
+- [ ] `Connection` クラスを新プロトコル用に書き直し（または削除）
+- [ ] 旧コマンドに対応するテストを削除し、新コマンドのテストを追加
+
+## パッケージング・CI
+
 - [ ] RuboCop lint パス確認
+- [ ] CHANGELOG.md
+- [ ] GitHub Actions CI を新コマンド構成に合わせて更新

@@ -4,6 +4,7 @@ require_relative "detector"
 require_relative "connection"
 require_relative "runtime_manager"
 require_relative "commands/install"
+require_relative "commands/deploy"
 require_relative "commands/ls"
 require_relative "commands/put"
 require_relative "commands/get"
@@ -26,6 +27,14 @@ module Prremote
     def install
       version = options[:version] || RUNTIME_VERSION
       Commands::Install.new(version: version).call
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
+    end
+
+    desc "deploy FILE", "Compile and run a Ruby script on the device"
+    def deploy(file)
+      port = resolve_port
+      Commands::Deploy.new(port: port, baud: options[:baud]).call(file)
     rescue RuntimeError => e
       raise Thor::Error, e.message
     end
@@ -155,15 +164,17 @@ module Prremote
 
     VOLUME_ROOT = "/Volumes/R2P2"
 
-    desc "reset", "Reset (reboot) the device"
+    desc "reset", "Interrupt running program and reboot the device"
     def reset
       port = resolve_port
-      warn "Connecting to #{port}…"
-      conn = Connection.new(port: port, baud: options[:baud]).open
-      conn.reboot
-      puts "Device rebooted."
+      serial = Serial.new(port, options[:baud])
+      serial.write("\x03")
+      sleep 0.1
+      puts "Reset signal sent."
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
     ensure
-      conn&.close
+      serial&.close
     end
 
     desc "open [REMOTE]", "Open device path in Finder (macOS only)"
@@ -179,10 +190,31 @@ module Prremote
     desc "version", "Show prremote and device firmware version"
     def version
       puts "prremote #{VERSION}"
-      with_connection do |conn|
-        fw = conn.run("puts RUBY_VERSION")
-        puts "Device Ruby: #{fw}"
+
+      port = options[:port] || Detector.find_device
+      unless port
+        puts "Device runtime: (no device connected)"
+        return
       end
+
+      serial = Serial.new(port, options[:baud])
+      # Send Ctrl+C so a running program is interrupted and device re-sends READY
+      serial.write("\x03")
+
+      buf = +""
+      deadline = Time.now + 5
+      loop do
+        buf << (serial.read(256) || "").gsub("\r\n", "\n").gsub("\r", "")
+        if buf =~ /READY prremote-runtime\/([\d.]+)/
+          puts "Device runtime: #{$1}"
+          return
+        end
+        break if Time.now > deadline
+        sleep 0.05
+      end
+      puts "Device runtime: (not responding)"
+    ensure
+      serial&.close
     end
 
     private

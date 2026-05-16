@@ -1,19 +1,18 @@
 # prremote
 
-**prremote** is a command-line tool for remotely interacting with [PicoRuby](https://github.com/picoruby/picoruby) / [R2P2](https://github.com/picoruby/R2P2) devices over a serial connection — inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) for MicroPython.
-
 > ⚠️ This project is in early development. APIs and commands are subject to change.
+
+**prremote** is a command-line tool for deploying and running Ruby scripts on a Raspberry Pi Pico W over USB serial. It ships a minimal [mruby/c](https://github.com/mrubyc/mrubyc) runtime firmware and lets you compile and send `.rb` files from your Mac or Linux machine directly to the device.
+
+Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) for MicroPython.
 
 ---
 
-## Features
+## Requirements
 
-- 🔌 Auto-detect and connect to R2P2 devices over USB serial
-- 💎 REPL access to the PicoRuby shell
-- 📁 File transfer (upload / download) to/from the device
-- ▶️ Run local `.rb` scripts on the device
-- 🧪 Evaluate Ruby expressions remotely
-- 📂 Mount local directory on the device _(planned)_
+- Ruby 3.x or later
+- Raspberry Pi Pico W
+- `mrbc` in your PATH (for `deploy` and `eval`) — install via `brew install mruby` on macOS
 
 ---
 
@@ -23,130 +22,145 @@
 gem install prremote
 ```
 
-Or add to your Gemfile:
+---
 
-```ruby
-gem 'prremote'
+## Quick Start
+
+```bash
+# 1. Flash the prremote runtime to your Pico W (one-time setup)
+prremote install
+
+# 2. Write your app
+echo 'puts "Hello from Pico W!"' > app.rb
+
+# 3. Deploy and run
+prremote deploy app.rb
 ```
 
 ---
 
-## Requirements
+## Commands
 
-- Ruby 3.x
-- A Raspberry Pi Pico / Pico W running [R2P2 / PicoRuby](https://picoruby.org/setup)
+### `install`
+
+Flash the prremote runtime firmware to a Pico W.
+
+```bash
+prremote install
+prremote install --version 0.1.1   # specify a runtime version
+```
+
+The firmware is downloaded from GitHub Releases on first use and cached in `~/.prremote/runtime/`. Subsequent installs use the cache.
+
+Put the Pico W into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
 
 ---
 
-## Usage
+### `deploy FILE`
 
-### Connect and open REPL
-
-```bash
-prremote repl
-```
-
-### List files on device
+Compile a local `.rb` file to mruby bytecode and send it to the device for immediate execution.
 
 ```bash
-prremote ls
-prremote ls /home
+prremote deploy app.rb
+prremote deploy blink.rb --port /dev/tty.usbmodem101
 ```
 
-### Upload a file to device
+The device responds with `RUNNING`, streams any output, then `DONE`. If the program loops forever, use `prremote reset` to stop it.
 
-```bash
-prremote put script.rb
-prremote put script.rb /home/script.rb
-```
+---
 
-### Download a file from device
+### `eval EXPR`
 
-```bash
-prremote get /home/script.rb
-prremote get /home/script.rb ./local_copy.rb
-```
-
-### Run a local Ruby script on device
-
-```bash
-prremote run script.rb
-```
-
-### Evaluate a Ruby expression on device
+Evaluate a Ruby one-liner on the device.
 
 ```bash
 prremote eval "puts 1 + 1"
-```
-
-### Specify a serial port explicitly
-
-```bash
-prremote --port /dev/ttyACM0 repl
-prremote --port COM3 ls
+prremote eval "CYW43.init; CYW43::GPIO.new(CYW43::GPIO::LED_PIN).write 1"
 ```
 
 ---
 
-## Command Reference
+### `reset`
 
-| Command | Description |
-|---|---|
-| `repl` | Open interactive REPL on device |
-| `ls [path]` | List files on device |
-| `put <local> [remote]` | Upload file to device |
-| `get <remote> [local]` | Download file from device |
-| `run <file.rb>` | Run local script on device |
-| `eval <expr>` | Evaluate Ruby expression on device |
-| `rm <path>` | Remove file on device |
-| `mkdir <path>` | Create directory on device |
-| `version` | Show prremote and device firmware version |
+Interrupt a running program and reboot the device.
 
-### Global Options
+```bash
+prremote reset
+```
+
+Sends `Ctrl+C` (`0x03`) over the serial connection. The runtime's watchdog fires within 1 ms and the device restarts, ready for the next `deploy`.
+
+---
+
+### `watch FILE`
+
+Watch a local file for changes and automatically run `deploy` + `reset` on every save.
+
+```bash
+prremote watch app.rb
+```
+
+Useful during development — save your file and the device immediately runs the updated code.
+
+---
+
+### `list`
+
+List USB serial devices that may be prremote-compatible.
+
+```bash
+prremote list
+```
+
+---
+
+### `version`
+
+Show the gem version and, if a device is connected and idle, its runtime version.
+
+```bash
+prremote version
+# prremote 0.1.0
+# Device runtime: 0.1.1
+```
+
+---
+
+## Global Options
 
 | Option | Description |
 |---|---|
-| `--port`, `-p` | Serial port to connect to (default: auto-detect) |
-| `--baud`, `-b` | Baud rate (default: `115200`) |
-| `--help`, `-h` | Show help |
-| `--version` | Show prremote version |
+| `--port`, `-p PORT` | Serial port (default: auto-detect) |
+| `--baud`, `-b N` | Baud rate (default: `115200`) |
 
 ---
 
-## Auto-detection
-
-By default, prremote scans available USB serial ports and connects to the first R2P2 device found. If multiple devices are connected, use `--port` to specify which one to use.
+## Typical Development Workflow
 
 ```bash
-prremote list          # Show available devices
-prremote --port /dev/ttyACM1 repl
+# First-time setup
+prremote install
+
+# Manual cycle
+prremote deploy app.rb    # compile + send + run
+prremote reset            # stop running program
+
+# Automated cycle (recommended)
+prremote watch app.rb     # auto-deploy on every file save
 ```
 
 ---
 
-## Comparison with mpremote
+## How It Works
 
-| Feature | prremote (PicoRuby) | mpremote (MicroPython) |
-|---|---|---|
-| Target runtime | PicoRuby / R2P2 | MicroPython |
-| Language | Ruby | Python |
-| REPL access | ✅ | ✅ |
-| File transfer | ✅ | ✅ |
-| Run local script | ✅ | ✅ |
-| Directory mount | 🚧 Planned | ✅ |
-| Package install | 🚧 Planned | ✅ (`mip`) |
+prremote flashes a minimal C firmware (built on mruby/c) onto the Pico W. The firmware:
 
----
+1. Waits for a USB serial connection and sends `READY prremote-runtime/VERSION`
+2. Receives compiled mruby bytecode (`.mrb`) from the host
+3. Executes it with the mruby/c VM and streams output back
+4. Waits for the next deploy
 
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes (`git commit -m 'Add my feature'`)
-4. Push to the branch (`git push origin feature/my-feature`)
-5. Open a Pull Request
+There is no persistent file storage — every `deploy` starts a fresh execution. GPIO and WiFi (CYW43) C bindings are available in Ruby code running on the device.
 
 ---
 
@@ -158,7 +172,5 @@ Bug reports and pull requests are welcome on GitHub.
 
 ## Related Projects
 
-- [PicoRuby](https://github.com/picoruby/picoruby) — Ruby implementation for microcontrollers
-- [R2P2](https://github.com/picoruby/R2P2) — PicoRuby shell for Raspberry Pi Pico
-- [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) — MicroPython remote control tool (inspiration)
-- [mpr](https://github.com/bulletmark/mpr) — mpremote wrapper with conventional CLI interface
+- [mruby/c](https://github.com/mrubyc/mrubyc) — Lightweight mruby implementation used in the runtime
+- [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) — MicroPython equivalent (inspiration)
