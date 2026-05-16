@@ -78,12 +78,4 @@ class IntegrationTest < Minitest::Test
     @conn.run(%(File.delete("#{file}"))) rescue nil
   end
 
-  def test_run_executes_script_and_returns_output
-    Tempfile.create(["run_src", ".rb"]) do |f|
-      f.write("puts 42")
-      f.flush
-      result = Prremote::Commands::Run.new(@conn).call(f.path)
-      assert_match(/42/, result)
-    end
-  end
 end

@@ -125,6 +125,8 @@ target_link_libraries(runtime
   pico_stdlib
   hardware_gpio
   hardware_watchdog
+  hardware_flash
+  hardware_sync
   ${BOARD_LIBS}
 )
 pico_enable_stdio_usb(runtime 1)

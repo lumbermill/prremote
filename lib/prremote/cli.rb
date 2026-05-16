@@ -31,7 +31,16 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc "deploy FILE", "Compile and run a Ruby script on the device"
+    desc "run FILE", "Compile and run a Ruby script on the device (one-shot)"
+    def run_script(file)
+      port = resolve_port
+      Commands::Run.new(port: port, baud: options[:baud]).call(file)
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
+    end
+    map "run" => :run_script
+
+    desc "deploy FILE", "Compile and save a Ruby script to flash (auto-runs on boot)"
     def deploy(file)
       port = resolve_port
       Commands::Deploy.new(port: port, baud: options[:baud]).call(file)
@@ -128,15 +137,6 @@ module Prremote
         puts "Downloaded #{remote} -> #{local}"
       end
     end
-
-    desc "run FILE", "Run a local Ruby script on device"
-    def run_script(file)
-      with_connection do |conn|
-        output = Commands::Run.new(conn).call(file)
-        puts output unless output.empty?
-      end
-    end
-    map "run" => :run_script
 
     desc "eval EXPR", "Evaluate a Ruby expression on device"
     def eval(expr)
