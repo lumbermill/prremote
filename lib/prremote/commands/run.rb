@@ -1,5 +1,6 @@
 require "open3"
 require "tempfile"
+require_relative "../mrbc"
 
 module Prremote
   module Commands
@@ -23,23 +24,12 @@ module Prremote
 
       def compile(rb_path)
         tmp = Tempfile.new(["prremote", ".mrb"])
-        out, status = Open3.capture2e(mrbc_bin, "-o", tmp.path, rb_path)
+        out, status = Open3.capture2e(Mrbc.bin, "-o", tmp.path, rb_path)
         raise "mrbc failed:\n#{out.chomp}" unless status.success?
 
         File.binread(tmp.path)
       ensure
         tmp&.close!
-      end
-
-      def mrbc_bin
-        return ENV["MRBC"] if ENV["MRBC"] && File.executable?(ENV["MRBC"])
-
-        found = ENV["PATH"].split(File::PATH_SEPARATOR)
-                           .reject { |d| d.match?(%r{\.rbenv/shims}) }
-                           .map { |d| File.join(d, "mrbc") }
-                           .find { |f| File.executable?(f) }
-
-        found || raise("mrbc not found. Install mruby: brew install mruby")
       end
 
       def run_on_device(mrb_data)

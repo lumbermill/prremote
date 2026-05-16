@@ -202,6 +202,16 @@ int main(void)
         restart = true;
         break;
       }
+
+      if (memcmp(win, "ERSE", 4) == 0) {
+        uint32_t ints = save_and_disable_interrupts();
+        flash_range_erase(FLASH_STORAGE_OFFSET, FLASH_STORAGE_SIZE);
+        restore_interrupts(ints);
+        printf("ERASED\n");
+        stdio_flush();
+        restart = true;
+        break;
+      }
     }
     if (restart) continue;
 

@@ -1,10 +1,15 @@
 require "thor"
+require "rubyserial"
 require_relative "version"
 require_relative "detector"
+require_relative "mrbc"
 require_relative "runtime_manager"
 require_relative "commands/install"
 require_relative "commands/deploy"
+require_relative "commands/undeploy"
 require_relative "commands/run"
+require_relative "commands/eval_cmd"
+require_relative "commands/watch"
 
 module Prremote
   class CLI < Thor
@@ -41,6 +46,30 @@ module Prremote
       raise Thor::Error, e.message
     end
 
+    desc "undeploy", "Erase the deployed script from flash (disables auto-run on boot)"
+    def undeploy
+      port = resolve_port
+      Commands::Undeploy.new(port: port, baud: options[:baud]).call
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
+    end
+
+    desc "eval EXPR", "Compile and run a one-liner Ruby expression on the device"
+    def eval(expr)
+      port = resolve_port
+      Commands::EvalCmd.new(port: port, baud: options[:baud]).call(expr)
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
+    end
+
+    desc "watch FILE", "Watch a Ruby file for changes and re-run on the device automatically"
+    def watch(file)
+      port = resolve_port
+      Commands::Watch.new(port: port, baud: options[:baud]).call(file)
+    rescue RuntimeError => e
+      raise Thor::Error, e.message
+    end
+
     desc "list", "Show available serial devices"
     def list
       devices = Detector.new.list_devices
@@ -64,13 +93,19 @@ module Prremote
       serial&.close
     end
 
-    desc "version", "Show prremote and device firmware version"
+    desc "version", "Show prremote, mrbc, and device firmware version"
     def version
-      puts "prremote #{VERSION}"
+      puts "prremote: #{VERSION}"
+
+      begin
+        puts "mrbc:     #{Mrbc.version} (#{Mrbc.bin})"
+      rescue RuntimeError => e
+        puts "mrbc: (#{e.message})"
+      end
 
       port = options[:port] || Detector.find_device
       unless port
-        puts "Device runtime: (no device connected)"
+        puts "runtime:  (no device connected)"
         return
       end
 
@@ -82,13 +117,13 @@ module Prremote
       loop do
         buf << (serial.read(256) || "").gsub("\r\n", "\n").gsub("\r", "")
         if buf =~ /READY prremote-runtime\/([\d.]+)/
-          puts "Device runtime: #{$1}"
+          puts "runtime:  #{$1}"
           return
         end
         break if Time.now > deadline
         sleep 0.05
       end
-      puts "Device runtime: (not responding)"
+      puts "runtime:  (not responding)"
     ensure
       serial&.close
     end
