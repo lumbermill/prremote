@@ -24,10 +24,18 @@ rake release        # ビルド（pico + picow）→ GitHub draft リリース�
 バージョンは `lib/prremote/version.rb` の `VERSION` / `RUNTIME_VERSION` で管理。
 
 ```bash
-# ルートで
-bundle exec rake gem            # pkg/prremote-X.X.X.gem をビルド
-gem push pkg/prremote-X.X.X.gem  # RubyGems.org に push
-git tag vX.X.X && git push origin vX.X.X
+# 1. テスト
+bundle exec rake test
+
+# 2. gem ビルド
+bundle exec rake gem            # pkg/prremote-X.X.X.gem が生成される
+
+# 3. RubyGems.org に push（MFA 有効のため OTP が必要）
+gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
+
+# 4. git タグを打って push
+git tag vX.X.X
+git push origin main vX.X.X
 ```
 
 `RUNTIME_VERSION` を上げるときは、先にランタイムをリリースしてから gem をリリースする。
