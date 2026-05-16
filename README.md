@@ -45,16 +45,18 @@ prremote run app.rb
 
 ### `install`
 
-Flash the prremote runtime firmware to a Pico W.
+Flash the prremote runtime firmware to a Pico W or Pico.
 
 ```bash
-prremote install
-prremote install --version 0.1.1   # specify a runtime version
+prremote install                          # Pico W (default)
+prremote install --board pico             # Pico (no wireless)
+prremote install --version 0.1.1          # specify a runtime version
+prremote install --board pico --version 0.1.1
 ```
 
 The firmware is downloaded from GitHub Releases on first use and cached in `~/.prremote/runtime/`. Subsequent installs use the cache.
 
-Put the Pico W into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
+Put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
 
 ---
 

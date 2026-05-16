@@ -3,14 +3,16 @@ require 'fileutils'
 module Prremote
   module Commands
     class Install
-      def initialize(version: RUNTIME_VERSION)
+      def initialize(version: RUNTIME_VERSION, board: 'picow')
         @version = version
+        @board = board
       end
 
       def call
-        uf2_path = RuntimeManager.fetch(@version)
+        uf2_path = RuntimeManager.fetch(@version, @board)
 
-        puts 'Put the Pico W into BOOTSEL mode:'
+        device_label = @board == 'picow' ? 'Pico W' : 'Pico'
+        puts "Put the #{device_label} into BOOTSEL mode:"
         puts '  1. Hold the BOOTSEL button'
         puts '  2. Connect USB (or press RUN while holding BOOTSEL)'
         puts '  3. Release BOOTSEL — RPI-RP2 should appear as a USB drive'

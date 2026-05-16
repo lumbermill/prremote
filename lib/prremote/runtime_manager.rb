@@ -4,32 +4,32 @@ require 'fileutils'
 
 module Prremote
   module RuntimeManager
-    BOARD = 'picow'
+    BOARDS = %w[pico picow].freeze
 
-    def self.uf2_filename(version)
-      "prremote-#{BOARD}-runtime-#{version}.uf2"
+    def self.uf2_filename(version, board)
+      "prremote-#{board}-runtime-#{version}.uf2"
     end
 
-    def self.release_url(version)
-      "https://github.com/lumbermill/prremote/releases/download/runtime-#{version}/#{uf2_filename(version)}"
+    def self.release_url(version, board)
+      "https://github.com/lumbermill/prremote/releases/download/runtime-#{version}/#{uf2_filename(version, board)}"
     end
 
     def self.cache_dir
       File.join(Dir.home, '.prremote', 'runtime')
     end
 
-    def self.cached_path(version)
-      File.join(cache_dir, uf2_filename(version))
+    def self.cached_path(version, board)
+      File.join(cache_dir, uf2_filename(version, board))
     end
 
-    def self.fetch(version)
-      path = cached_path(version)
+    def self.fetch(version, board)
+      path = cached_path(version, board)
       return path if File.exist?(path)
 
       FileUtils.mkdir_p(cache_dir)
-      $stderr.print "Downloading #{uf2_filename(version)}..."
+      $stderr.print "Downloading #{uf2_filename(version, board)}..."
       $stderr.flush
-      download(release_url(version), path)
+      download(release_url(version, board), path)
       warn ' done.'
       path
     end
