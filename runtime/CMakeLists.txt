@@ -76,11 +76,21 @@ add_custom_target(mrblib
 # Map cmake PICO_BOARD to the gem's naming convention (no underscores)
 string(REPLACE "_" "" RUNTIME_BOARD "${PICO_BOARD}")
 
+# Compile hw_wrap.rb (GPIO / ADC / PWM Ruby classes) — always included
+add_custom_command(
+  OUTPUT ${CMAKE_SOURCE_DIR}/src/hw_wrap.h
+  COMMAND ${MRBC_EXECUTABLE} -B hw_wrap -o ${CMAKE_SOURCE_DIR}/src/hw_wrap.h
+          ${CMAKE_SOURCE_DIR}/src/hw_wrap.rb
+  DEPENDS ${CMAKE_SOURCE_DIR}/src/hw_wrap.rb
+  COMMENT "Compiling hw_wrap.rb → hw_wrap.h"
+)
+add_custom_target(hw_wrap_h DEPENDS ${CMAKE_SOURCE_DIR}/src/hw_wrap.h)
+
 # --- Board-specific sources, defines, and libraries ---
 set(BOARD_SOURCES "")
 set(BOARD_DEFINES "")
 set(BOARD_LIBS   "")
-set(BOARD_DEPS   "")
+set(BOARD_DEPS   hw_wrap_h)
 
 if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
   add_custom_command(
@@ -124,6 +134,8 @@ add_dependencies(runtime autogen mrblib ${BOARD_DEPS})
 target_link_libraries(runtime
   pico_stdlib
   hardware_gpio
+  hardware_adc
+  hardware_pwm
   hardware_watchdog
   hardware_flash
   hardware_sync

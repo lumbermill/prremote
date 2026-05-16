@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "hw_wrap.h"
 #ifdef HAS_CYW43
 #include "cyw43_wrap.h"
 #endif
@@ -124,9 +125,14 @@ static void exec_mrb(void)
   mrbc_init(memory_pool, HEAP_SIZE);
   runtime_define_methods();
 
+  if (mrbc_create_task(hw_wrap, NULL) == NULL) {
+    printf("ERROR hw_wrap\n");
+    stdio_flush();
+    return;
+  }
 #ifdef HAS_CYW43
   if (mrbc_create_task(cyw43_wrap, NULL) == NULL) {
-    printf("ERROR wrap\n");
+    printf("ERROR cyw43_wrap\n");
     stdio_flush();
     return;
   }
