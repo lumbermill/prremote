@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(RUNTIME_VERSION "0.1.3")
+set(RUNTIME_VERSION "0.1.4")
 
 # Default board is pico_w; override with: cmake -B build/pico -DPICO_BOARD=pico
 set(PICO_BOARD pico_w CACHE STRING "Target board (pico, pico_w, pico2_w, etc.)")
@@ -137,6 +137,8 @@ target_link_libraries(runtime
   hardware_gpio
   hardware_adc
   hardware_pwm
+  hardware_i2c
+  hardware_spi
   hardware_watchdog
   hardware_flash
   hardware_sync

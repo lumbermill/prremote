@@ -16,19 +16,22 @@
 
 凡例: [W] = Pico W のみ、[*] = Pico / Pico W 共通
 
-- [x] `samples/led.rb`    — [W] CYW43 オンボード LED 点滅
+- [x] `samples/led_picow.rb` — [W] CYW43 オンボード LED 点滅
 - [x] `samples/gpio.rb`   — [*] 外部 GPIO 出力／入力
 - [x] `samples/wifi.rb`   — [W] WiFi 接続・IP 取得
 - [　] `samples/adc.rb`    — [*] アナログ入力読み取り（GPIO 26–28）⚠️ 未接続状態でも電圧変化が激しい（ADC動作確認が必要）
 - [x] `samples/pwm.rb`    — [*] PWM で LED フェード
-- [ ] `samples/led_pico.rb` — [Pico] GPIO 25 オンボード LED 点滅（Pico 向けサンプル）
-- [ ] `samples/i2c.rb` - 温度計などとのi2c通信
+- [x] `samples/led_pico.rb` — [Pico] GPIO 25 オンボード LED 点滅（Pico 向けサンプル）
+- [x] `samples/i2c.rb` — [*] I2C 温度センサ読み取り（ADT7410）
+- [x] `samples/spi.rb` — [*] SPI ADC 読み取り（MCP3208）
 
 ## ランタイム拡張（上記サンプルの前提）
 
 - [x] `GPIO` クラス追加（`_gpio_*` ラッパー、PicoRuby 互換 API）
 - [x] `ADC` C バインディング＋Rubyクラス追加（`hardware_adc`）
 - [x] `PWM` C バインディング＋Rubyクラス追加（`hardware_pwm`）
+- [x] `I2C` C バインディング＋Rubyクラス追加（`hardware_i2c`、PicoRuby 互換 API）
+- [x] `SPI` C バインディング＋Rubyクラス追加（`hardware_spi`、PicoRuby 互換 API）
 
 ## ランタイム既知の問題
 
@@ -42,7 +45,7 @@
 - [x] deploy スクリプトのスタンドアロン自動実行: USB ホスト不要で起動時に実行（runtime 0.1.3）
 - [x] `\x03` リセット後の誤自動実行を防止: `watchdog_caused_reboot()` チェック追加（runtime 0.1.3）
 - [ ] `version` プローブ改善: デバイスがスクリプト実行中の場合 `version` コマンドが ~10 秒かかる。`\x03` → リブート → 再接続の待機が発生するため。スクリプト実行中でも即座に応答できる仕組みが理想
-- [ ] `RubySerial::Error` が各コマンドの `rescue RuntimeError` で捕まらない: `run` / `deploy` / `eval` / `watch` / `reset` のエラーハンドリングが不完全。`rescue StandardError` に統一すべき
+- [x] `RubySerial::Error` が各コマンドの `rescue RuntimeError` で捕まらない: `run` / `deploy` / `eval` / `watch` / `reset` のエラーハンドリングが不完全。`rescue StandardError` に統一すべき
 
 ## mrbc の扱い
 
@@ -65,21 +68,21 @@
 
 ### ランタイム
 
-- [ ] `PICO_BOARD=pico` でビルドできることを確認（`HAS_CYW43` なし）
-- [ ] Pico 向け UF2 を GitHub Releases に追加（`prremote-pico-runtime-x.x.x.uf2`）
+- [x] `PICO_BOARD=pico` でビルドできることを確認（`HAS_CYW43` なし）
+- [x] Pico 向け UF2 を GitHub Releases に追加（`prremote-pico-runtime-x.x.x.uf2`）
 - [ ] `runtime_manager.rb` でボード種別を判別してダウンロード先を切り替える
   - BOOTSEL マウント時に `RP2040` か `RP2350` かでボードを特定する仕組みが必要
 
 ### CLI
 
-- [ ] `prremote install` でボード（`pico` / `pico_w`）を選択または自動検出できるようにする
+- [x] `prremote install` でボード（`pico` / `pico_w`）を選択または自動検出できるようにする
   - `--board pico` / `--board picow` オプション案
   - マウントボリューム名（`RPI-RP2` は共通）では区別できないため、手動指定が現実的
 
 ### サンプル
 
-- [ ] `samples/led_pico.rb` — GPIO 25 オンボード LED（Pico 向け）
-- [ ] `samples/led.rb` は `led_picow.rb`にリネーム
+- [x] `samples/led_pico.rb` — GPIO 25 オンボード LED（Pico 向け）
+- [x] `samples/led.rb` は `led_picow.rb`にリネーム
 
 ## パッケージング・CI
 

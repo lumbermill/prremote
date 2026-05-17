@@ -3,6 +3,8 @@
 #include "hardware/adc.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
+#include "hardware/i2c.h"
+#include "hardware/spi.h"
 #include <mrubyc.h>
 
 #ifdef HAS_CYW43
@@ -132,6 +134,143 @@ static void c_pwm_set_duty_u16(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 /* ------------------------------------------------------------------ */
+/* I2C bindings                                                        */
+/* ------------------------------------------------------------------ */
+
+static i2c_inst_t *i2c_unit(int n) { return n == 0 ? i2c0 : i2c1; }
+
+static void c_i2c_init(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int      unit_num = GET_INT_ARG(1);
+  uint32_t freq     = (uint32_t)GET_INT_ARG(2);
+  int      sda      = GET_INT_ARG(3);
+  int      scl      = GET_INT_ARG(4);
+
+  i2c_init(i2c_unit(unit_num), freq);
+  if (sda < 0) sda = PICO_DEFAULT_I2C_SDA_PIN;
+  if (scl < 0) scl = PICO_DEFAULT_I2C_SCL_PIN;
+  gpio_set_function(sda, GPIO_FUNC_I2C);
+  gpio_set_function(scl, GPIO_FUNC_I2C);
+  gpio_pull_up(sda);
+  gpio_pull_up(scl);
+  SET_INT_RETURN(unit_num);
+}
+
+/* _i2c_write(unit_num, addr, data_array, nostop_int) */
+static void c_i2c_write(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int     unit_num = GET_INT_ARG(1);
+  uint8_t addr     = (uint8_t)GET_INT_ARG(2);
+  bool    nostop   = GET_INT_ARG(4) != 0;
+
+  uint8_t buf[64];
+  int n = 0;
+  if (v[3].tt == MRBC_TT_ARRAY) {
+    mrbc_array *ary = v[3].array;
+    n = ary->n_stored < 64 ? (int)ary->n_stored : 64;
+    for (int i = 0; i < n; i++) buf[i] = (uint8_t)mrbc_integer(ary->data[i]);
+  }
+
+  int ret = i2c_write_timeout_us(i2c_unit(unit_num), addr, buf, n, nostop, 500000);
+  SET_INT_RETURN(ret);
+}
+
+/* _i2c_read(unit_num, addr, len) → String or nil */
+static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int     unit_num = GET_INT_ARG(1);
+  uint8_t addr     = (uint8_t)GET_INT_ARG(2);
+  int     len      = GET_INT_ARG(3);
+  if (len > 256) len = 256;
+
+  uint8_t buf[256];
+  int ret = i2c_read_timeout_us(i2c_unit(unit_num), addr, buf, len, false, 500000);
+  if (ret <= 0) { SET_NIL_RETURN(); return; }
+  mrbc_value s = mrbc_string_new(vm, buf, ret);
+  SET_RETURN(s);
+}
+
+/* ------------------------------------------------------------------ */
+/* SPI bindings                                                        */
+/* ------------------------------------------------------------------ */
+
+static spi_inst_t *spi_unit(int n) { return n == 0 ? spi0 : spi1; }
+
+/* _spi_init(unit_num, freq, sck, cipo, copi, mode) → unit_num */
+static void c_spi_init(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int      unit_num = GET_INT_ARG(1);
+  uint32_t freq     = (uint32_t)GET_INT_ARG(2);
+  int      sck      = GET_INT_ARG(3);
+  int      cipo     = GET_INT_ARG(4);
+  int      copi     = GET_INT_ARG(5);
+  int      mode     = GET_INT_ARG(6);
+
+  spi_inst_t *unit = spi_unit(unit_num);
+  spi_init(unit, freq);
+  spi_set_format(unit, 8,
+                 (mode & 0x02) ? SPI_CPOL_1 : SPI_CPOL_0,
+                 (mode & 0x01) ? SPI_CPHA_1 : SPI_CPHA_0,
+                 SPI_MSB_FIRST);
+
+  if (sck  < 0) sck  = PICO_DEFAULT_SPI_SCK_PIN;
+  if (copi < 0) copi = PICO_DEFAULT_SPI_TX_PIN;
+  gpio_set_function(sck,  GPIO_FUNC_SPI);
+  gpio_set_function(copi, GPIO_FUNC_SPI);
+  if (cipo >= 0) gpio_set_function(cipo, GPIO_FUNC_SPI);
+
+  SET_INT_RETURN(unit_num);
+}
+
+/* _spi_write(unit_num, data_array) → bytes written */
+static void c_spi_write(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int unit_num = GET_INT_ARG(1);
+
+  uint8_t buf[64];
+  int n = 0;
+  if (v[2].tt == MRBC_TT_ARRAY) {
+    mrbc_array *ary = v[2].array;
+    n = ary->n_stored < 64 ? (int)ary->n_stored : 64;
+    for (int i = 0; i < n; i++) buf[i] = (uint8_t)mrbc_integer(ary->data[i]);
+  }
+  int ret = spi_write_blocking(spi_unit(unit_num), buf, n);
+  SET_INT_RETURN(ret);
+}
+
+/* _spi_read(unit_num, len, repeated_tx_byte) → String or nil */
+static void c_spi_read(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int     unit_num    = GET_INT_ARG(1);
+  int     len         = GET_INT_ARG(2);
+  uint8_t repeated_tx = (uint8_t)GET_INT_ARG(3);
+  if (len > 256) len = 256;
+
+  uint8_t buf[256];
+  int ret = spi_read_blocking(spi_unit(unit_num), repeated_tx, buf, len);
+  if (ret <= 0) { SET_NIL_RETURN(); return; }
+  mrbc_value s = mrbc_string_new(vm, buf, ret);
+  SET_RETURN(s);
+}
+
+/* _spi_transfer(unit_num, data_array) → String or nil */
+static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int unit_num = GET_INT_ARG(1);
+  uint8_t tx[64], rx[64];
+  int n = 0;
+  if (v[2].tt == MRBC_TT_ARRAY) {
+    mrbc_array *ary = v[2].array;
+    n = ary->n_stored < 64 ? (int)ary->n_stored : 64;
+    for (int i = 0; i < n; i++) tx[i] = (uint8_t)mrbc_integer(ary->data[i]);
+  }
+  int ret = spi_write_read_blocking(spi_unit(unit_num), tx, rx, n);
+  if (ret <= 0) { SET_NIL_RETURN(); return; }
+  mrbc_value s = mrbc_string_new(vm, rx, ret);
+  SET_RETURN(s);
+}
+
+/* ------------------------------------------------------------------ */
 /* Register all methods — called after every mrbc_init()              */
 /* ------------------------------------------------------------------ */
 
@@ -150,6 +289,13 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_pwm_gpio_init",    c_pwm_gpio_init);
   mrbc_define_method(0, mrbc_class_object, "_pwm_set_freq",     c_pwm_set_freq);
   mrbc_define_method(0, mrbc_class_object, "_pwm_set_duty_u16", c_pwm_set_duty_u16);
+  mrbc_define_method(0, mrbc_class_object, "_i2c_init",         c_i2c_init);
+  mrbc_define_method(0, mrbc_class_object, "_i2c_write",        c_i2c_write);
+  mrbc_define_method(0, mrbc_class_object, "_i2c_read",         c_i2c_read);
+  mrbc_define_method(0, mrbc_class_object, "_spi_init",         c_spi_init);
+  mrbc_define_method(0, mrbc_class_object, "_spi_write",        c_spi_write);
+  mrbc_define_method(0, mrbc_class_object, "_spi_read",         c_spi_read);
+  mrbc_define_method(0, mrbc_class_object, "_spi_transfer",     c_spi_transfer);
 #ifdef HAS_CYW43
   register_cyw43_methods();
 #endif

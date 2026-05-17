@@ -54,3 +54,73 @@ class PWM
     _pwm_set_duty_u16(@pin, val)
   end
 end
+
+class SPI
+  MSB_FIRST         = 1
+  DEFAULT_FREQUENCY = 1_000_000
+
+  def initialize(unit: :RP2040_SPI0, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, cs_pin: -1, mode: 0)
+    @unit_num = _spi_init(unit == :RP2040_SPI0 ? 0 : 1, frequency, sck_pin, cipo_pin, copi_pin, mode)
+    if cs_pin >= 0
+      @cs = GPIO.new(cs_pin, GPIO::OUT)
+      @cs.write(1)
+    end
+  end
+
+  # write(byte, byte, ...) → bytes written
+  def write(*data)
+    _spi_write(@unit_num, data)
+  end
+
+  # read(len, repeated_tx_data = 0) → String or nil
+  def read(len, repeated_tx_data = 0)
+    _spi_read(@unit_num, len, repeated_tx_data)
+  end
+
+  # transfer(data_array) → String or nil  (full-duplex write+read)
+  def transfer(data)
+    _spi_transfer(@unit_num, data)
+  end
+
+  def select
+    @cs.write(0) if @cs
+  end
+
+  def deselect
+    @cs.write(1) if @cs
+  end
+end
+
+class I2C
+  DEFAULT_FREQUENCY = 100_000
+  DEFAULT_TIMEOUT   = 500
+
+  def initialize(unit: :RP2040_I2C0, frequency: DEFAULT_FREQUENCY, sda_pin: -1, scl_pin: -1, timeout: DEFAULT_TIMEOUT)
+    @timeout  = timeout
+    @unit_num = _i2c_init(unit == :RP2040_I2C0 ? 0 : 1, frequency, sda_pin, scl_pin)
+  end
+
+  # write(addr, byte, byte, ...) → bytes written or -1
+  def write(addr, *data)
+    _i2c_write(@unit_num, addr, data, 0)
+  end
+
+  # read(addr, len, *write_data) → String or nil
+  # If write_data is given, writes it first with repeated-start then reads.
+  def read(addr, len, *write_data)
+    _i2c_write(@unit_num, addr, write_data, 1) unless write_data.empty?
+    _i2c_read(@unit_num, addr, len)
+  end
+
+  # scan → Array of 7-bit addresses that responded
+  def scan
+    found = []
+    addr = 0x08
+    while addr <= 0x77
+      result = _i2c_read(@unit_num, addr, 1)
+      found << addr unless result.nil?
+      addr += 1
+    end
+    found
+  end
+end
