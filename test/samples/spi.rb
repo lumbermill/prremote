@@ -9,8 +9,8 @@ spi = SPI.new(unit: :RP2040_SPI0,
 # Read a single-ended channel (0..7).
 # Protocol: 3-byte transfer — [start|SGL|D2, D1D0|padding, don't-care]
 def mcp3208_read(spi, channel)
-  byte1 = 0b110 | ((channel >> 2) & 1)  # start=1, SGL=1, D2
-  byte2 = (channel & 0b11) << 6          # D1, D0
+  byte1 = 0b110 | ((channel >> 2) & 1) # start=1, SGL=1, D2
+  byte2 = (channel & 0b11) << 6 # D1, D0
   spi.select
   result = spi.transfer([byte1, byte2, 0x00])
   spi.deselect
@@ -18,7 +18,7 @@ def mcp3208_read(spi, channel)
 end
 
 loop do
-  value   = mcp3208_read(spi, 0)  # CH0
+  value   = mcp3208_read(spi, 0) # CH0
   voltage = value * 3.3 / 4095.0
   puts "CH0: #{value} (#{voltage} V)"
   sleep 1

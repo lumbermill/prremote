@@ -20,6 +20,8 @@ module Prremote
       true
     end
 
+    remove_command :tree
+
     desc 'install', 'Flash prremote runtime firmware to Pico W or Pico'
     option :version, type: :string, desc: "Firmware version to install (default: #{RUNTIME_VERSION})"
     option :board, type: :string, desc: 'Board type: pico or picow (default: picow)'
