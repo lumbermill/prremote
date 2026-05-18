@@ -1,5 +1,12 @@
 # prremote — 開発メモ
 
+## 初回セットアップ
+
+```bash
+bundle install
+rake setup      # pre-push フックをインストール（bundle check + rubocop を自動実行）
+```
+
 ## リリース手順
 
 ### ランタイム (runtime/)
@@ -24,16 +31,19 @@ rake release        # ビルド（pico + picow）→ GitHub draft リリース�
 バージョンは `lib/prremote/version.rb` の `VERSION` / `RUNTIME_VERSION` で管理。
 
 ```bash
-# 1. テスト
+# 1. バージョンを上げた後は必ず実行（Gemfile.lock を更新）
+bundle install
+
+# 2. テスト
 bundle exec rake test
 
-# 2. gem ビルド
+# 3. gem ビルド
 bundle exec rake gem            # pkg/prremote-X.X.X.gem が生成される
 
-# 3. RubyGems.org に push（MFA 有効のため OTP が必要）
+# 4. RubyGems.org に push（MFA 有効のため OTP が必要）
 gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
 
-# 4. git タグを打って push
+# 5. git タグを打って push
 git tag vX.X.X
 git push origin main vX.X.X
 ```
