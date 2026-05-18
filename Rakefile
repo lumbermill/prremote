@@ -20,7 +20,7 @@ task default: :test
 
 task :setup do
   hook = '.git/hooks/pre-push'
-  File.write(hook, <<~'SH')
+  File.write(hook, <<~SH)
     #!/bin/sh
     set -e
     echo '→ bundle install'
