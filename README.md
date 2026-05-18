@@ -74,6 +74,8 @@ prremote run blink.rb --port /dev/tty.usbmodem101
 
 The device responds with `RUNNING`, streams any output, then `DONE`.
 
+You can find some examples in [test/samples](test/samples/).
+
 ---
 
 ### `deploy FILE`
