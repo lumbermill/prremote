@@ -12,9 +12,12 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 
 - Ruby 3.x or later
 - Raspberry Pi Pico W
-- `mrbc` in your PATH (for `run`, `deploy`, and `eval`)
+- `mrbc` (mruby 4.x) for `run`, `deploy`, and `eval`
   - macOS: `brew install mruby`
-  - Ubuntu / Raspberry Pi OS: `sudo apt install mruby`
+  - Linux: build from source — [github.com/mruby/mruby/releases](https://github.com/mruby/mruby/releases)
+    (`sudo apt install mruby` installs mruby 3.x which is **not compatible**)
+  - If `mrbc` is not on your PATH, set the `MRBC` environment variable:
+    `MRBC=/path/to/mrbc prremote run app.rb`
 
 ---
 

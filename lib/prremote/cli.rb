@@ -106,7 +106,12 @@ module Prremote
       puts "prremote: #{VERSION}"
 
       begin
+        major = Mrbc.major_version
         puts "mrbc:     #{Mrbc.version} (#{Mrbc.bin})"
+        unless major && major >= Mrbc::REQUIRED_MAJOR
+          puts "  ** mrbc is too old (need #{Mrbc::REQUIRED_MAJOR}.x) **"
+          puts "  Hint: the path can be set via MRBC environment variable."
+        end
       rescue StandardError => e
         puts "mrbc:     (#{e.message})"
       end

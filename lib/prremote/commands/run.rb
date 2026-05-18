@@ -23,6 +23,7 @@ module Prremote
       private
 
       def compile(rb_path)
+        Mrbc.check_version!
         tmp = Tempfile.new(['prremote', '.mrb'])
         out, status = Open3.capture2e(Mrbc.bin, '-o', tmp.path, rb_path)
         raise "mrbc failed:\n#{out.chomp}" unless status.success?
