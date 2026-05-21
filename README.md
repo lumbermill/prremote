@@ -6,11 +6,17 @@
 
 Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) for MicroPython.
 
+
+[![Gem Version](https://img.shields.io/gem/v/prremote)](https://rubygems.org/gems/prremote)
+[![CI](https://github.com/lumbermill/prremote/actions/workflows/ci.yml/badge.svg)](https://github.com/lumbermill/prremote/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Ruby](https://img.shields.io/badge/ruby-3.4%20%7C%204.0-red)](https://github.com/lumbermill/prremote)
+
 ---
 
 ## Requirements
 
-- Ruby 3.x or later
+- Ruby 3.4 or later
 - Raspberry Pi Pico W
 - `mrbc` (mruby 4.x) for `run`, `deploy`, and `eval`
   - macOS: `brew install mruby`
