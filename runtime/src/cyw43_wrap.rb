@@ -28,6 +28,8 @@ module CYW43
   end
 
   module WiFi
+    LINK_UP = 3
+
     def self.connect(ssid, pass, timeout: 10_000)
       _cyw43_enable_sta_mode
       _wifi_connect(ssid, pass, timeout)

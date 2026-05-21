@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 
-set(RUNTIME_VERSION "0.1.3")
+file(READ "${CMAKE_SOURCE_DIR}/../../VERSION" RUNTIME_VERSION_RAW)
+string(STRIP "${RUNTIME_VERSION_RAW}" RUNTIME_VERSION)
 
 # Default board is pico_w; override with: cmake -B build/pico -DPICO_BOARD=pico
 set(PICO_BOARD pico_w CACHE STRING "Target board (pico, pico_w, pico2_w, etc.)")
@@ -88,12 +89,17 @@ add_custom_command(
 add_custom_target(hw_wrap_h DEPENDS ${CMAKE_SOURCE_DIR}/src/hw_wrap.h)
 
 # --- Board-specific sources, defines, and libraries ---
-set(BOARD_SOURCES "")
-set(BOARD_DEFINES "")
-set(BOARD_LIBS   "")
-set(BOARD_DEPS   hw_wrap_h)
+set(BOARD_SOURCES  "")
+set(BOARD_DEFINES  "")
+set(BOARD_LIBS     "")
+set(BOARD_DEPS     hw_wrap_h)
+set(BOARD_INCLUDES "")
 
 if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
+  # picoruby submodule paths
+  set(PICORUBY_DIR   ${CMAKE_SOURCE_DIR}/picoruby)
+  set(PICOSOCKET_DIR ${PICORUBY_DIR}/mrbgems/picoruby-socket)
+
   add_custom_command(
     OUTPUT ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.h
     COMMAND ${MRBC_EXECUTABLE} -B cyw43_wrap -o ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.h
@@ -103,10 +109,39 @@ if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
   )
   add_custom_target(cyw43_wrap_h DEPENDS ${CMAKE_SOURCE_DIR}/src/cyw43_wrap.h)
 
-  list(APPEND BOARD_SOURCES ${CMAKE_SOURCE_DIR}/src/bindings_cyw43.c)
-  list(APPEND BOARD_DEFINES HAS_CYW43=1)
-  list(APPEND BOARD_LIBS   pico_cyw43_arch_lwip_threadsafe_background)
-  list(APPEND BOARD_DEPS   cyw43_wrap_h)
+  # socket_wrap: basic_socket.rb + tcp_socket.rb → bytecode header
+  add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/src/socket_wrap.h
+    COMMAND ${MRBC_EXECUTABLE} -B socket_wrap -o ${CMAKE_SOURCE_DIR}/src/socket_wrap.h
+            ${PICOSOCKET_DIR}/mrblib/basic_socket.rb
+            ${PICOSOCKET_DIR}/mrblib/tcp_socket.rb
+    DEPENDS
+            ${PICOSOCKET_DIR}/mrblib/basic_socket.rb
+            ${PICOSOCKET_DIR}/mrblib/tcp_socket.rb
+    COMMENT "Compiling socket_wrap (picoruby-socket) → socket_wrap.h"
+  )
+  add_custom_target(socket_wrap_h DEPENDS ${CMAKE_SOURCE_DIR}/src/socket_wrap.h)
+
+  list(APPEND BOARD_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/bindings_cyw43.c
+    ${PICOSOCKET_DIR}/ports/rp2040/tcp_socket.c
+    ${CMAKE_SOURCE_DIR}/src/net_helpers.c
+    ${CMAKE_SOURCE_DIR}/src/mdns_resolver.c
+    ${PICOSOCKET_DIR}/src/mrubyc/tcp_socket.c
+    ${CMAKE_SOURCE_DIR}/src/socket_init.c
+  )
+  list(APPEND BOARD_INCLUDES ${PICOSOCKET_DIR}/include)
+  list(APPEND BOARD_DEFINES  HAS_CYW43=1)
+  list(APPEND BOARD_LIBS     pico_cyw43_arch_lwip_threadsafe_background)
+  list(APPEND BOARD_DEPS     cyw43_wrap_h socket_wrap_h)
+
+  # picoruby-socket sources include "picoruby.h"; inject compat header only for those files
+  set_source_files_properties(
+    ${PICOSOCKET_DIR}/ports/rp2040/tcp_socket.c
+    ${PICOSOCKET_DIR}/src/mrubyc/tcp_socket.c
+    ${CMAKE_SOURCE_DIR}/src/socket_init.c
+    PROPERTIES COMPILE_OPTIONS "-include;${CMAKE_SOURCE_DIR}/src/picoruby_compat.h"
+  )
 endif()
 
 # --- Runtime: reflash-once firmware, receives .mrb via USB serial ---
@@ -122,6 +157,7 @@ target_include_directories(runtime PRIVATE
   ${CMAKE_SOURCE_DIR}/mrubyc/src
   ${CMAKE_SOURCE_DIR}/mrubyc/hal/rp2040
   ${CMAKE_SOURCE_DIR}/src
+  ${BOARD_INCLUDES}
 )
 set_target_properties(runtime PROPERTIES
   OUTPUT_NAME "prremote-${RUNTIME_BOARD}-runtime-${RUNTIME_VERSION}"

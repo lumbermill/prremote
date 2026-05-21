@@ -9,6 +9,7 @@
 
 #ifdef HAS_CYW43
 void register_cyw43_methods(void);
+void mrbc_socket_init(mrbc_vm *vm);
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -298,5 +299,6 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_spi_transfer",     c_spi_transfer);
 #ifdef HAS_CYW43
   register_cyw43_methods();
+  mrbc_socket_init(0);
 #endif
 }

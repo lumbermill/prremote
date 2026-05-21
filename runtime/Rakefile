@@ -23,6 +23,17 @@ task build: BOARDS.keys.map { |b| :"build:#{b}" }
 
 task default: :build
 
+desc "Copy UF2 files for all boards into ~/.prremote/runtime/ (local gem cache)"
+task cache: :build do
+  cache_dir = File.join(Dir.home, '.prremote', 'runtime')
+  mkdir_p cache_dir
+  BOARDS.keys.each do |label|
+    src = "build/#{label}/prremote-#{label}-runtime-#{RUNTIME_VERSION}.uf2"
+    cp src, cache_dir
+    puts "Cached: #{File.join(cache_dir, File.basename(src))}"
+  end
+end
+
 desc "Create draft GitHub release runtime-#{RUNTIME_VERSION} with UF2 assets for all boards"
 task release: :build do
   tag    = "runtime-#{RUNTIME_VERSION}"

@@ -3,7 +3,7 @@ require 'fileutils'
 module Prremote
   module Commands
     class Install
-      def initialize(version: RUNTIME_VERSION, board: 'picow')
+      def initialize(version: VERSION, board: 'picow')
         @version = version
         @board = board
       end

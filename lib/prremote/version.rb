@@ -1,4 +1,3 @@
 module Prremote
-  VERSION         = '0.1.2'
-  RUNTIME_VERSION = '0.1.3'
+  VERSION = File.read(File.expand_path('../../VERSION', __dir__)).strip
 end

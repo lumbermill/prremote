@@ -23,10 +23,10 @@ module Prremote
     remove_command :tree
 
     desc 'install', 'Flash prremote runtime firmware to Pico W or Pico'
-    option :version, type: :string, desc: "Firmware version to install (default: #{RUNTIME_VERSION})"
+    option :version, type: :string, desc: "Firmware version to install (default: #{VERSION})"
     option :board, type: :string, desc: 'Board type: pico or picow (default: picow)'
     def install
-      version = options[:version] || RUNTIME_VERSION
+      version = options[:version] || VERSION
       board = options[:board] || 'picow'
       unless RuntimeManager::BOARDS.include?(board)
         raise Thor::Error, "Unknown board '#{board}'. Valid values: #{RuntimeManager::BOARDS.join(', ')}"
