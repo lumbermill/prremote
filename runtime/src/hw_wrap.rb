@@ -1,3 +1,12 @@
+# Hardware peripheral wrappers for prremote (GPIO / ADC / PWM / SPI / I2C).
+#
+# API design is intentionally simpler than picoruby's equivalents
+# (picoruby-gpio / picoruby-adc / picoruby-pwm / picoruby-spi / picoruby-i2c).
+# For example, GPIO uses a direction constant (OUT / IN / IN_PULLUP) instead of
+# picoruby's bitfield flags (GPIO::OUT | GPIO::PULL_UP), and PWM uses duty_u16
+# (0-65535) instead of a duty-cycle percentage.  The C primitives (_gpio_init,
+# _adc_read, etc.) are defined entirely in bindings.c and are not shared with
+# picoruby.
 class GPIO
   IN          = 0
   OUT         = 1

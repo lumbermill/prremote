@@ -1,3 +1,17 @@
+/*
+ * CYW43 / WiFi C bindings for the prremote runtime.
+ *
+ * Design reference: picoruby-cyw43/ports/rp2040/cyw43.c
+ *   The overall structure (init guard, arch_init_with_country, wifi_connect,
+ *   ipv4_address / netmask / gateway) mirrors that file.  Key differences:
+ *   - No DHCP-explicit start: pico_cyw43_arch_lwip_threadsafe_background
+ *     already handles DHCP, so the extra dhcp_start() call is omitted.
+ *   - All methods are registered as plain mruby/c object methods (_foo style)
+ *     rather than as picoruby class methods; cyw43_wrap.rb provides the class
+ *     facade on top.
+ *   - LED sanity-check on init (cyw43_arch_gpio_put/get) is omitted for brevity.
+ */
+
 #include "pico/cyw43_arch.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -13,9 +27,20 @@ static bool s_cyw43_initialized = false;
 static void c_cyw43_init(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   if (!s_cyw43_initialized) {
-    cyw43_arch_init();
+    int res;
+    /* Country-code handling adapted from picoruby-cyw43/ports/rp2040/cyw43.c
+     * CYW43_arch_init_with_country(): passes a 2-char ISO string as a
+     * CYW43_COUNTRY(A, B, rev) macro to the pico-sdk. */
+    if (argc >= 1 && v[1].tt == MRBC_TT_STRING) {
+      const uint8_t *cc = (const uint8_t *)RSTRING_PTR(v[1]);
+      res = cyw43_arch_init_with_country(CYW43_COUNTRY(cc[0], cc[1], 0));
+    } else {
+      res = cyw43_arch_init();
+    }
+    if (res != 0) { SET_FALSE_RETURN(); return; }
     s_cyw43_initialized = true;
   }
+  SET_TRUE_RETURN();
 }
 
 static void c_cyw43_initialized(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -49,10 +74,11 @@ static void c_cyw43_gpio_get(mrbc_vm *vm, mrbc_value v[], int argc)
 
 static void c_wifi_connect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  const char *ssid    = RSTRING_PTR(v[1]);
-  const char *pass    = RSTRING_PTR(v[2]);
-  int         timeout = GET_INT_ARG(3);
-  int result = cyw43_arch_wifi_connect_timeout_ms(ssid, pass, CYW43_AUTH_WPA2_AES_PSK, timeout);
+  const char *ssid     = RSTRING_PTR(v[1]);
+  const char *pass     = RSTRING_PTR(v[2]);
+  uint32_t    auth     = (uint32_t)GET_INT_ARG(3);
+  int         timeout  = GET_INT_ARG(4);
+  int result = cyw43_arch_wifi_connect_timeout_ms(ssid, pass, auth, timeout);
   SET_INT_RETURN(result);
 }
 

@@ -1,3 +1,21 @@
+/*
+ * Socket class hierarchy initialization for the prremote runtime.
+ *
+ * The Ruby bytecode (socket_wrap.h) is compiled directly from picoruby-socket:
+ *   mrbgems/picoruby-socket/mrblib/basic_socket.rb
+ *   mrbgems/picoruby-socket/mrblib/tcp_socket.rb
+ *
+ * The C layer also uses picoruby-socket sources unchanged:
+ *   mrbgems/picoruby-socket/src/mrubyc/tcp_socket.c   (VM bindings)
+ *   mrbgems/picoruby-socket/ports/rp2040/tcp_socket.c  (lwip implementation)
+ *
+ * This file provides only the glue: mrbc_socket_init() is a trimmed copy of
+ * picoruby-socket/src/mrubyc/socket.c — UDP/SSL/TCPServer stubs removed
+ * because those gems are not included in this build.
+ * picoruby_compat.h bridges the picorb_alloc / picorb_free symbols that those
+ * sources expect from picoruby.h to the plain mruby/c API.
+ */
+
 #include "picoruby_compat.h"
 #include "socket.h"
 
