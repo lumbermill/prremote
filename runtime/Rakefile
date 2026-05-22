@@ -1,4 +1,4 @@
-RUNTIME_VERSION = File.read("CMakeLists.txt")[/set\(RUNTIME_VERSION "([^"]+)"\)/, 1]
+RUNTIME_VERSION = File.read("../VERSION").strip
 
 # gem board label => cmake PICO_BOARD value
 BOARDS = {
@@ -45,7 +45,7 @@ task release: :build do
   missing = assets.reject { |f| File.exist?(f) }
   abort "Missing assets:\n#{missing.map { |f| "  #{f}" }.join("\n")}\nRun `rake build` first." unless missing.empty?
 
-  sh "gh release create #{tag} #{assets.join(' ')} --title #{title} --draft --generate-notes"
+  sh "gh release create #{tag} #{assets.join(' ')} --title \"#{title}\" --draft --generate-notes"
   puts
   puts "Draft release created. Edit notes and publish at:"
   puts "  https://github.com/lumbermill/prremote/releases/tag/#{tag}"

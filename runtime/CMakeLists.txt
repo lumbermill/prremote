@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-file(READ "${CMAKE_SOURCE_DIR}/../../VERSION" RUNTIME_VERSION_RAW)
+file(READ "${CMAKE_SOURCE_DIR}/../VERSION" RUNTIME_VERSION_RAW)
 string(STRIP "${RUNTIME_VERSION_RAW}" RUNTIME_VERSION)
 
 # Default board is pico_w; override with: cmake -B build/pico -DPICO_BOARD=pico
