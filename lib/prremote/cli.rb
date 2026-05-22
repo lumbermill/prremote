@@ -104,10 +104,11 @@ module Prremote
     desc 'version', 'Show prremote, mrbc, and device firmware version'
     def version
       puts "prremote: #{VERSION}"
+      puts "runtime:  #{fetch_runtime_version}"
 
       begin
         major = Mrbc.major_version
-        puts "mrbc:     #{Mrbc.version} (#{Mrbc.bin})"
+        puts "mrbc: #{Mrbc.version} (#{Mrbc.bin})"
         unless major && major >= Mrbc::REQUIRED_MAJOR
           puts "  ** mrbc is too old (need #{Mrbc::REQUIRED_MAJOR}.x) **"
           puts "  Hint: the path can be set via MRBC environment variable."
@@ -116,7 +117,6 @@ module Prremote
         puts "mrbc:     (#{e.message})"
       end
 
-      puts "runtime:  #{fetch_runtime_version}"
     end
 
     private
@@ -160,7 +160,7 @@ module Prremote
           next
         end
 
-        return ::Regexp.last_match(1) if buf =~ %r{READY prremote-runtime/([\d.]+)}
+        return "#{::Regexp.last_match(1)} (#{port})" if buf =~ %r{READY prremote-runtime/([\d.]+)}
         return '(not responding)' if Time.now > deadline
 
         sleep 0.05
