@@ -12,11 +12,11 @@ module Prremote
         @baud = baud
       end
 
-      def call(rb_path)
-        raise "File not found: #{rb_path}" unless File.exist?(rb_path)
+      def call(*rb_paths)
+        rb_paths.each { |f| raise "File not found: #{f}" unless File.exist?(f) }
 
-        warn "Compiling #{rb_path}..."
-        mrb_data = compile(rb_path)
+        warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
+        mrb_data = compile(*rb_paths)
 
         warn 'Deploying to flash...'
         deploy_to_device(mrb_data)
@@ -25,10 +25,10 @@ module Prremote
 
       private
 
-      def compile(rb_path)
+      def compile(*rb_paths)
         Mrbc.check_version!
         tmp = Tempfile.new(['prremote', '.mrb'])
-        out, status = Open3.capture2e(Mrbc.bin, '-o', tmp.path, rb_path)
+        out, status = Open3.capture2e(Mrbc.bin, '-o', tmp.path, *rb_paths)
         raise "mrbc failed:\n#{out.chomp}" unless status.success?
 
         File.binread(tmp.path)

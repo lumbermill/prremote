@@ -37,19 +37,23 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc 'run FILE', 'Compile and run a Ruby script on the device (one-shot)'
-    def run_script(file)
+    desc 'run FILE [FILE ...]', 'Compile and run Ruby scripts on the device (one-shot)'
+    def run_script(*files)
+      raise Thor::Error, 'At least one file is required.' if files.empty?
+
       port = resolve_port
-      Commands::Run.new(port: port, baud: options[:baud]).call(file)
+      Commands::Run.new(port: port, baud: options[:baud]).call(*files)
     rescue StandardError => e
       raise Thor::Error, e.message
     end
     map 'run' => :run_script
 
-    desc 'deploy FILE', 'Compile and save a Ruby script to flash (auto-runs on boot)'
-    def deploy(file)
+    desc 'deploy FILE [FILE ...]', 'Compile and save Ruby scripts to flash (auto-runs on boot)'
+    def deploy(*files)
+      raise Thor::Error, 'At least one file is required.' if files.empty?
+
       port = resolve_port
-      Commands::Deploy.new(port: port, baud: options[:baud]).call(file)
+      Commands::Deploy.new(port: port, baud: options[:baud]).call(*files)
     rescue StandardError => e
       raise Thor::Error, e.message
     end
@@ -70,10 +74,12 @@ module Prremote
       raise Thor::Error, e.message
     end
 
-    desc 'watch FILE', 'Watch a Ruby file for changes and re-run on the device automatically'
-    def watch(file)
+    desc 'watch FILE [FILE ...]', 'Watch Ruby files for changes and re-run on the device automatically'
+    def watch(*files)
+      raise Thor::Error, 'At least one file is required.' if files.empty?
+
       port = resolve_port
-      Commands::Watch.new(port: port, baud: options[:baud]).call(file)
+      Commands::Watch.new(port: port, baud: options[:baud]).call(*files)
     rescue StandardError => e
       raise Thor::Error, e.message
     end

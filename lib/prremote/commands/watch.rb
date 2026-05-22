@@ -10,21 +10,22 @@ module Prremote
         @baud = baud
       end
 
-      def call(rb_path)
-        raise "File not found: #{rb_path}" unless File.exist?(rb_path)
+      def call(*rb_paths)
+        rb_paths.each { |f| raise "File not found: #{f}" unless File.exist?(f) }
 
-        warn "Watching #{rb_path} (Ctrl+C to stop)..."
-        last_mtime = File.mtime(rb_path)
-        run(rb_path)
+        label = rb_paths.map { |f| File.basename(f) }.join(', ')
+        warn "Watching #{label} (Ctrl+C to stop)..."
+        mtimes = rb_paths.map { |f| File.mtime(f) }
+        run(*rb_paths)
 
         loop do
           sleep POLL_INTERVAL
-          mtime = File.mtime(rb_path)
-          next if mtime == last_mtime
+          new_mtimes = rb_paths.map { |f| File.mtime(f) }
+          next if new_mtimes == mtimes
 
-          last_mtime = mtime
-          warn "\n--- #{rb_path} changed, re-running ---"
-          run(rb_path)
+          mtimes = new_mtimes
+          warn "\n--- #{label} changed, re-running ---"
+          run(*rb_paths)
         end
       rescue Interrupt
         warn "\nStopped watching."
@@ -32,8 +33,8 @@ module Prremote
 
       private
 
-      def run(rb_path)
-        Run.new(port: @port, baud: @baud).call(rb_path)
+      def run(*rb_paths)
+        Run.new(port: @port, baud: @baud).call(*rb_paths)
       rescue StandardError => e
         warn "Error: #{e.message}"
       end
