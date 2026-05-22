@@ -116,7 +116,6 @@ module Prremote
       rescue StandardError => e
         puts "mrbc:     (#{e.message})"
       end
-
     end
 
     private
