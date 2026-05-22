@@ -6,6 +6,7 @@ AllCops:
     - "vendor/**/*"
     - "wk/**/*"
     - "runtime/**/*"
+    - "pkg/**/*"
 
 Style/Documentation:
   Enabled: false
