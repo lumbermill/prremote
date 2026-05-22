@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.5] - unreleased
+
+### Added
+
+- `run`, `deploy`, `watch` now accept multiple files: `prremote run lib.rb main.rb`
+  Files are compiled in order by mrbc into a single `.mrb`; classes defined in earlier
+  files are available to later ones (no `require` needed in mruby/c).
+- `watch` re-runs when any of the watched files changes.
+- Sample: `test/samples/multi/` — demonstrates splitting a script into `blinker.rb` (class) and `main.rb` (entry point).
 
 ## [0.1.1] - 2026-05-17
 
