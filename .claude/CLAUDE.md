@@ -14,28 +14,31 @@ rake setup      # pre-push フックをインストール（bundle check + ruboc
 
 ```bash
 # 1. VERSION ファイルを編集（例: 0.1.5）
-# 2. Gemfile.lock を更新
+# 2. CHANGELOG.md の [Unreleased] セクションをバージョン番号と日付に確定
+#    例: ## [0.1.5] - 2026-05-23
+# 3. README.md の version コマンド出力例のバージョン番号を更新
+# 4. Gemfile.lock を更新
 bundle install
 
-# 3. ローカルキャッシュにビルドを配置
+# 5. ローカルキャッシュにビルドを配置
 cd runtime/
 rake cache     # ビルド（pico + picow）→ ~/.prremote/runtime/ にコピー
 
-# 4. GitHub draft リリース作成（UF2 アップロード）
+# 6. GitHub draft リリース作成（UF2 アップロード）
 rake release
 # → draft のため GitHub 上でリリースノートを編集してから [Publish release]
 cd ..
 
-# 5. テスト
+# 7. テスト
 bundle exec rake test
 
-# 6. gem ビルド
+# 8. gem ビルド
 bundle exec rake gem            # pkg/prremote-X.X.X.gem が生成される
 
-# 7. RubyGems.org に push（MFA 有効のため OTP が必要）
+# 9. RubyGems.org に push（MFA 有効のため OTP が必要）
 gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
 
-# 8. git タグを打って push
+# 10. git タグを打って push
 git tag vX.X.X
 git push origin main vX.X.X
 ```
