@@ -69,13 +69,19 @@ Put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when promp
 
 ---
 
-### `run FILE`
+### `run FILE [FILE ...]`
 
-Compile a local `.rb` file to mruby bytecode and run it on the device immediately (one-shot).
+Compile one or more local `.rb` files to mruby bytecode and run them on the device immediately (one-shot).
 
 ```bash
 prremote run app.rb
 prremote run blink.rb --port /dev/tty.usbmodem101
+```
+
+Multiple files are compiled in order into a single `.mrb`. Classes and methods defined in earlier files are available to later ones — this is the recommended alternative to `require`, which is not available in mruby/c.
+
+```bash
+prremote run lib.rb main.rb
 ```
 
 The device responds with `RUNNING`, streams any output, then `DONE`.
@@ -84,12 +90,13 @@ You can find some examples in [test/samples](test/samples/).
 
 ---
 
-### `deploy FILE`
+### `deploy FILE [FILE ...]`
 
-Compile a local `.rb` file and save it to the device's flash. The script runs automatically on every boot.
+Compile one or more local `.rb` files and save them to the device's flash. The script runs automatically on every boot.
 
 ```bash
 prremote deploy app.rb
+prremote deploy lib.rb main.rb
 ```
 
 The device responds with `DEPLOYED` when the write is complete.
@@ -127,15 +134,16 @@ prremote reset
 
 ---
 
-### `watch FILE`
+### `watch FILE [FILE ...]`
 
-Watch a local file for changes and automatically re-run it on the device on every save.
+Watch one or more local files for changes and automatically re-run them on the device on every save.
 
 ```bash
 prremote watch app.rb
+prremote watch lib.rb main.rb
 ```
 
-Useful during development — save your file and the device immediately runs the updated code.
+Useful during development — save any watched file and the device immediately runs the updated code.
 
 ---
 
@@ -155,9 +163,9 @@ Show the gem version, mrbc version, and the connected device's runtime version.
 
 ```bash
 prremote version
-# prremote: 0.1.1
-# mrbc:     3.3.0 (/usr/local/bin/mrbc)
-# runtime:  0.1.3
+# prremote: 0.1.5
+# runtime:  0.1.5 (/dev/tty.usbmodem101)
+# mrbc: mruby 4.0.0 (2026-04-20) (/opt/homebrew/bin/mrbc)
 ```
 
 ---
