@@ -31,6 +31,13 @@ endif()
 
 add_compile_options(-DMRBC_USE_HAL_RP2040 -DMRBC_REQUIRE_32BIT_ALIGNMENT -DMAX_REGS_SIZE=256 -DMAX_SYMBOLS_COUNT=500)
 
+# hal.c uses mrbc_tick() declared in rrt0.h, but mrubyc upstream does not include rrt0.h
+# from hal.h yet — suppress the implicit-function-declaration warning rather than patching
+# the submodule. https://github.com/mrubyc/mrubyc/issues/288
+set_source_files_properties(mrubyc/hal/rp2040/hal.c
+  PROPERTIES COMPILE_OPTIONS "-Wno-implicit-function-declaration"
+)
+
 set(MRUBYC_SOURCES
   mrubyc/src/alloc.c
   mrubyc/src/c_array.c
