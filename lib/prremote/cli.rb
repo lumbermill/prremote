@@ -7,6 +7,7 @@ require_relative 'runtime_manager'
 require_relative 'commands/install'
 require_relative 'commands/deploy'
 require_relative 'commands/undeploy'
+require_relative 'commands/ls'
 require_relative 'commands/run'
 require_relative 'commands/eval_cmd'
 require_relative 'commands/watch'
@@ -54,6 +55,14 @@ module Prremote
 
       port = resolve_port
       Commands::Deploy.new(port: port, baud: options[:baud]).call(*files)
+    rescue StandardError => e
+      raise Thor::Error, e.message
+    end
+
+    desc 'ls', 'Show the script deployed to flash (use `reset` first if a script is running)'
+    def ls
+      port = resolve_port
+      Commands::Ls.new(port: port, baud: options[:baud]).call
     rescue StandardError => e
       raise Thor::Error, e.message
     end

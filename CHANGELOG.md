@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ls` — Show the script currently deployed to flash: filenames and deploy timestamp.
+  Requires `prremote reset` first if a script is actively running.
+- `deploy` now records filenames and timestamp in the flash header (runtime protocol extended with `META` + `QURY` commands); **runtime firmware must be updated** (`prremote install`).
 - `run`, `deploy`, `watch` now accept multiple files: `prremote run lib.rb main.rb`
   Files are compiled in order by mrbc into a single `.mrb`; classes defined in earlier
   files are available to later ones (no `require` needed in mruby/c).

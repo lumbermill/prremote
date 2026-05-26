@@ -6,6 +6,7 @@ module Prremote
   module Commands
     class Deploy
       DEPLOY_MAGIC = 'DPLY'.freeze
+      META_MAGIC   = 'META'.freeze
 
       def initialize(port:, baud:)
         @port = port
@@ -19,7 +20,7 @@ module Prremote
         mrb_data = compile(*rb_paths)
 
         warn 'Deploying to flash...'
-        deploy_to_device(mrb_data)
+        deploy_to_device(mrb_data, rb_paths)
         warn 'Deployed. Script will run automatically on next boot.'
       end
 
@@ -36,13 +37,23 @@ module Prremote
         tmp&.close!
       end
 
-      def deploy_to_device(mrb_data)
+      def deploy_to_device(mrb_data, rb_paths)
+        names_str   = rb_paths.map { |f| File.basename(f) }.join(' ')
+        names_bytes = names_str.encode('UTF-8').b
+        name_len    = [names_bytes.bytesize, 240].min
+        ts          = Time.now.to_i
+
+        meta_packet = META_MAGIC +
+          [name_len].pack('C') +
+          names_bytes[0, name_len] +
+          [ts].pack('N')
+
         serial = Serial.new(@port, @baud)
         sleep 0.5
         serial.read(4096)
 
-        serial.write(DEPLOY_MAGIC + mrb_data)
-        debug "sent DPLY + #{mrb_data.bytesize} bytes"
+        serial.write(DEPLOY_MAGIC + meta_packet + mrb_data)
+        debug "sent DPLY + META(#{name_len} bytes, ts=#{ts}) + #{mrb_data.bytesize} bytes"
 
         wait_for_deployed(serial)
       ensure

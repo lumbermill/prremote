@@ -46,20 +46,32 @@ static uint32_t flash_script_size(void)
        | ((uint32_t)h[2] <<  8) |  (uint32_t)h[3];
 }
 
-/* Must run from RAM: erases and programs flash while XIP is suspended. */
-static void __not_in_flash_func(save_to_flash)(const uint8_t *data, uint32_t size)
+/* Must run from RAM: erases and programs flash while XIP is suspended.
+ * Header page layout (256 bytes):
+ *   [0-3]   : "PRRD" magic
+ *   [4-7]   : .mrb size (big-endian uint32)
+ *   [8-11]  : Unix timestamp (big-endian uint32)
+ *   [12-251]: null-terminated deployed filenames string (max 240 bytes)
+ *   [252-255]: unused */
+static void __not_in_flash_func(save_to_flash_with_meta)(
+    const uint8_t *data, uint32_t size,
+    uint32_t ts, const uint8_t *names, uint8_t name_len)
 {
   uint32_t ints = save_and_disable_interrupts();
 
   flash_range_erase(FLASH_STORAGE_OFFSET, FLASH_STORAGE_SIZE);
 
-  /* First page: magic + big-endian size, rest zeroed. */
   uint8_t page[FLASH_PAGE_SIZE] = {0};
   memcpy(page, FLASH_MAGIC, 4);
   page[4] = (size >> 24) & 0xFF;
   page[5] = (size >> 16) & 0xFF;
   page[6] = (size >>  8) & 0xFF;
   page[7] =  size        & 0xFF;
+  page[8]  = (ts >> 24) & 0xFF;
+  page[9]  = (ts >> 16) & 0xFF;
+  page[10] = (ts >>  8) & 0xFF;
+  page[11] =  ts        & 0xFF;
+  if (name_len > 0) memcpy(page + 12, names, name_len);
   flash_range_program(FLASH_STORAGE_OFFSET, page, FLASH_PAGE_SIZE);
 
   /* Remaining pages: .mrb data. */
@@ -199,17 +211,34 @@ int main(void)
       if (memcmp(win, "RITE", 4) == 0) break;  /* proceed to run */
 
       if (memcmp(win, "DPLY", 4) == 0) {
-        /* The .mrb data follows; scan for its "RITE" magic. */
+        /* Expect META packet: "META" + 1-byte name_len + name_bytes
+         * + 4-byte big-endian Unix timestamp. */
         uint8_t win2[4] = {0};
         for (;;) {
           win2[0] = win2[1]; win2[1] = win2[2]; win2[2] = win2[3];
           win2[3] = (uint8_t)getchar();
-          if (memcmp(win2, "RITE", 4) == 0) break;
+          if (memcmp(win2, "META", 4) == 0) break;
+        }
+        uint8_t name_len_byte = (uint8_t)getchar();
+        if (name_len_byte > 240) name_len_byte = 240;
+        uint8_t names_buf[241] = {0};
+        if (name_len_byte > 0) recv_exact(names_buf, name_len_byte);
+        uint8_t ts_bytes[4];
+        recv_exact(ts_bytes, 4);
+        uint32_t ts = ((uint32_t)ts_bytes[0] << 24) | ((uint32_t)ts_bytes[1] << 16)
+                    | ((uint32_t)ts_bytes[2] <<  8) |  (uint32_t)ts_bytes[3];
+
+        /* The .mrb data follows; scan for its "RITE" magic. */
+        uint8_t win3[4] = {0};
+        for (;;) {
+          win3[0] = win3[1]; win3[1] = win3[2]; win3[2] = win3[3];
+          win3[3] = (uint8_t)getchar();
+          if (memcmp(win3, "RITE", 4) == 0) break;
         }
 
         uint32_t size = 0;
         if (recv_mrb(mrb_buffer, MRB_BUFFER_SIZE, &size)) {
-          save_to_flash(mrb_buffer, size);
+          save_to_flash_with_meta(mrb_buffer, size, ts, names_buf, name_len_byte);
           printf("DEPLOYED\n");
           stdio_flush();
         }
@@ -222,6 +251,22 @@ int main(void)
         flash_range_erase(FLASH_STORAGE_OFFSET, FLASH_STORAGE_SIZE);
         restore_interrupts(ints);
         printf("ERASED\n");
+        stdio_flush();
+        restart = true;
+        break;
+      }
+
+      if (memcmp(win, "QURY", 4) == 0) {
+        if (flash_has_script()) {
+          const uint8_t *h = (const uint8_t *)FLASH_STORAGE_ADDR;
+          uint32_t ts = ((uint32_t)h[8]  << 24) | ((uint32_t)h[9]  << 16)
+                      | ((uint32_t)h[10] <<  8) |  (uint32_t)h[11];
+          const char *names = (const char *)(h + 12);
+          printf("DEPLOYED %u %s\n", (unsigned)ts,
+                 *names ? names : "(unknown)");
+        } else {
+          printf("NONE\n");
+        }
         stdio_flush();
         restart = true;
         break;
