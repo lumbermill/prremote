@@ -18,6 +18,8 @@ module Prremote
 
         warn 'Running...'
         run_on_device(mrb_data)
+      rescue Interrupt
+        warn ''
       end
 
       private
@@ -44,6 +46,10 @@ module Prremote
 
         post_running = wait_for_running(serial)
         stream_until_done(serial, post_running)
+      rescue Interrupt
+        serial&.write("\x03")
+        sleep 0.1
+        raise
       ensure
         serial&.close
       end
