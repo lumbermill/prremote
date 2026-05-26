@@ -15,7 +15,7 @@ end
 
 class LsCommandTest < Minitest::Test
   def test_shows_deployed_script
-    ts   = 1716729296
+    ts   = 1_716_729_296
     fake = FakeSerialLs.new(['', "DEPLOYED #{ts} lib.rb app.rb\n"])
     cmd  = Prremote::Commands::Ls.new(port: '/dev/null', baud: 115_200)
 

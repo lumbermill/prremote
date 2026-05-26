@@ -38,26 +38,21 @@ module Prremote
       end
 
       def deploy_to_device(mrb_data, rb_paths)
-        names_str   = rb_paths.map { |f| File.basename(f) }.join(' ')
-        names_bytes = names_str.encode('UTF-8').b
-        name_len    = [names_bytes.bytesize, 240].min
-        ts          = Time.now.to_i
-
-        meta_packet = META_MAGIC +
-          [name_len].pack('C') +
-          names_bytes[0, name_len] +
-          [ts].pack('N')
-
         serial = Serial.new(@port, @baud)
         sleep 0.5
         serial.read(4096)
-
-        serial.write(DEPLOY_MAGIC + meta_packet + mrb_data)
-        debug "sent DPLY + META(#{name_len} bytes, ts=#{ts}) + #{mrb_data.bytesize} bytes"
-
+        serial.write(DEPLOY_MAGIC + build_meta_packet(rb_paths) + mrb_data)
         wait_for_deployed(serial)
       ensure
         serial&.close
+      end
+
+      def build_meta_packet(rb_paths)
+        names_bytes = rb_paths.map { |f| File.basename(f) }.join(' ').encode('UTF-8').b
+        name_len    = [names_bytes.bytesize, 240].min
+        ts          = Time.now.to_i
+        debug "meta: #{name_len} bytes, ts=#{ts}"
+        META_MAGIC + [name_len].pack('C') + names_bytes[0, name_len] + [ts].pack('N')
       end
 
       def wait_for_deployed(serial)

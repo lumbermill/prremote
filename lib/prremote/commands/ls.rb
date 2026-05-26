@@ -11,7 +11,11 @@ module Prremote
       def call
         result = query_device
         if result
-          ts_str = result[:timestamp] > 0 ? Time.at(result[:timestamp]).strftime('%Y-%m-%d %H:%M:%S') : '(unknown)'
+          ts_str = if result[:timestamp].positive?
+                     Time.at(result[:timestamp]).strftime('%Y-%m-%d %H:%M:%S')
+                   else
+                     '(unknown)'
+                   end
           puts 'Deployed script:'
           puts "  Files:    #{result[:names]}"
           puts "  Deployed: #{ts_str}"
