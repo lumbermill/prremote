@@ -1,6 +1,10 @@
+require_relative 'serial_helpers'
+
 module Prremote
   module Commands
     class Ls
+      include SerialHelpers
+
       QUERY_MAGIC = 'QURY'.freeze
 
       def initialize(port:, baud:)
@@ -28,9 +32,7 @@ module Prremote
 
       def query_device
         serial = Serial.new(@port, @baud)
-        sleep 0.5
-        serial.read(4096)
-
+        wait_for_ready(serial)
         serial.write(QUERY_MAGIC)
 
         buf = +''
@@ -53,10 +55,6 @@ module Prremote
         end
       ensure
         serial&.close
-      end
-
-      def normalize(str)
-        str.gsub("\r\n", "\n").gsub("\r", '')
       end
     end
   end

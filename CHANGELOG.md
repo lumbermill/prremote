@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `run`: Ctrl+C now sends `\x03` to the device before closing the serial port, preventing `ENXIO` on the next `run` invocation.
+- `run`, `deploy`, `ls`: now wait for the device's `READY` message before sending data, eliminating intermittent "Timeout waiting for device to start execution" errors caused by the fixed 0.5 s sleep being too short.
 - Runtime: on receiving `\x03` (Ctrl+C), `tud_disconnect()` is called first to cleanly detach from the host (equivalent to unplugging the cable), followed by a watchdog reset. This prevents the host USB stack from getting confused by a reset without prior detach.
 
 ## [0.1.1] - 2026-05-17

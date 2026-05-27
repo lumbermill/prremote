@@ -16,7 +16,7 @@ end
 class LsCommandTest < Minitest::Test
   def test_shows_deployed_script
     ts   = 1_716_729_296
-    fake = FakeSerialLs.new(['', "DEPLOYED #{ts} lib.rb app.rb\n"])
+    fake = FakeSerialLs.new(['READY prremote-runtime/0.1.5\n', "DEPLOYED #{ts} lib.rb app.rb\n"])
     cmd  = Prremote::Commands::Ls.new(port: '/dev/null', baud: 115_200)
 
     out = capture_io do
@@ -31,7 +31,7 @@ class LsCommandTest < Minitest::Test
   end
 
   def test_shows_no_script_when_none
-    fake = FakeSerialLs.new(['', "NONE\n"])
+    fake = FakeSerialLs.new(['READY prremote-runtime/0.1.5\n', "NONE\n"])
     cmd  = Prremote::Commands::Ls.new(port: '/dev/null', baud: 115_200)
 
     out = capture_io do
@@ -61,7 +61,7 @@ class LsCommandTest < Minitest::Test
   end
 
   def test_shows_unknown_timestamp_when_zero
-    fake = FakeSerialLs.new(['', "DEPLOYED 0 app.rb\n"])
+    fake = FakeSerialLs.new(['READY prremote-runtime/0.1.5\n', "DEPLOYED 0 app.rb\n"])
     cmd  = Prremote::Commands::Ls.new(port: '/dev/null', baud: 115_200)
 
     out = capture_io do

@@ -1,10 +1,13 @@
 require 'open3'
 require 'tempfile'
 require_relative '../mrbc'
+require_relative 'serial_helpers'
 
 module Prremote
   module Commands
     class Deploy
+      include SerialHelpers
+
       DEPLOY_MAGIC = 'DPLY'.freeze
       META_MAGIC   = 'META'.freeze
 
@@ -39,8 +42,7 @@ module Prremote
 
       def deploy_to_device(mrb_data, rb_paths)
         serial = Serial.new(@port, @baud)
-        sleep 0.5
-        serial.read(4096)
+        wait_for_ready(serial)
         serial.write(DEPLOY_MAGIC + build_meta_packet(rb_paths) + mrb_data)
         wait_for_deployed(serial)
       ensure
@@ -68,10 +70,6 @@ module Prremote
 
           sleep 0.05
         end
-      end
-
-      def normalize(str)
-        str.gsub("\r\n", "\n").gsub("\r", '')
       end
 
       def debug(msg)

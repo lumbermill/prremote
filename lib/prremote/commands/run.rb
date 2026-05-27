@@ -1,10 +1,13 @@
 require 'open3'
 require 'tempfile'
 require_relative '../mrbc'
+require_relative 'serial_helpers'
 
 module Prremote
   module Commands
     class Run
+      include SerialHelpers
+
       def initialize(port:, baud:)
         @port = port
         @baud = baud
@@ -37,9 +40,7 @@ module Prremote
 
       def run_on_device(mrb_data)
         serial = Serial.new(@port, @baud)
-        sleep 0.5
-        drained = serial.read(4096) || ''
-        debug "drained #{drained.bytesize} bytes: #{drained.inspect}"
+        wait_for_ready(serial)
 
         serial.write(mrb_data)
         debug "sent #{mrb_data.bytesize} bytes (first 4: #{mrb_data[0, 4].inspect})"
@@ -95,10 +96,6 @@ module Prremote
 
           sleep 0.01
         end
-      end
-
-      def normalize(str)
-        str.gsub("\r\n", "\n").gsub("\r", '')
       end
 
       def debug(msg)
