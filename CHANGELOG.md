@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.5] - unreleased
+## [0.1.5] - 2026-05-27
 
 ### Added
 
@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Mrbc` module — Shared mrbc binary lookup; overridable via `$MRBC` environment variable
 - mruby/c runtime (`runtime/`) for Raspberry Pi Pico W
 
-[Unreleased]: https://github.com/lumbermill/prremote/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/lumbermill/prremote/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/lumbermill/prremote/compare/v0.1.1...v0.1.5
 [0.1.1]: https://github.com/lumbermill/prremote/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/lumbermill/prremote/releases/tag/v0.1.0
