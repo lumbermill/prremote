@@ -182,6 +182,7 @@ target_link_libraries(runtime
   hardware_pwm
   hardware_i2c
   hardware_spi
+  hardware_timer
   hardware_watchdog
   hardware_flash
   hardware_sync

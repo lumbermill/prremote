@@ -1,6 +1,9 @@
 #include "pico/stdlib.h"
 #include "pico/stdio.h"
+#include "pico/stdio_usb.h"
+#include "tusb.h"
 #include "hardware/watchdog.h"
+#include "hardware/timer.h"
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include <mrubyc.h>
@@ -95,6 +98,10 @@ static bool check_reset_cb(repeating_timer_t *t)
 {
   int c = getchar_timeout_us(0);
   if (c == 0x03) {
+    /* Disconnect USB cleanly before resetting — equivalent to unplugging the
+     * cable — so the host's USB stack is not left in a confused state. */
+    tud_disconnect();
+    busy_wait_ms(500);
     watchdog_enable(1, 1);
     while (1) tight_loop_contents();
   }
@@ -155,7 +162,6 @@ static void exec_mrb(void)
     return;
   }
 #endif
-
   if (mrbc_create_task(mrb_buffer, NULL) == NULL) {
     printf("ERROR exec\n");
     stdio_flush();
