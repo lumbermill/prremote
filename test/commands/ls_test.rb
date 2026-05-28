@@ -25,7 +25,7 @@ class LsCommandTest < Minitest::Test
       end
     end.first
 
-    assert_equal ['QURY'], fake.written
+    assert_equal ["\x03", 'QURY'], fake.written
     assert_match(/Files:\s+lib\.rb app\.rb/, out)
     assert_match(/Deployed:\s+\d{4}-\d{2}-\d{2}/, out)
   end
