@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `run`, `deploy`, `ls`: send `\x03` (Ctrl+C) immediately after opening the serial port to force the device to re-emit `READY`. On macOS, USB CDC TX buffers are dropped when the host closes the port, leaving the device waiting in `getchar()` without re-sending `READY`, causing a "Timeout waiting for device" error on the next invocation.
+
 ## [0.1.5] - 2026-05-27
 
 ### Added
