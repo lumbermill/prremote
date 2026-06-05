@@ -87,11 +87,11 @@ module Prremote
             return
           end
 
-          if buf.length > 512
-            safe = buf.length - 5
-            $stdout.print buf[0, safe]
+          # Flush on newline boundaries so each puts line appears immediately.
+          if (nl_pos = buf.rindex("\n"))
+            $stdout.print buf[0, nl_pos + 1]
             $stdout.flush
-            buf = buf[safe..]
+            buf = buf[(nl_pos + 1)..]
           end
 
           sleep 0.01
