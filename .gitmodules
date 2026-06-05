@@ -4,3 +4,6 @@
 [submodule "runtime/picoruby"]
 	path = runtime/picoruby
 	url = https://github.com/picoruby/picoruby.git
+[submodule "runtime/pico-sdk"]
+	path = runtime/pico-sdk
+	url = https://github.com/raspberrypi/pico-sdk.git
