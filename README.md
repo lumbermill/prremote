@@ -213,6 +213,40 @@ Scripts saved via `deploy` are stored in flash and run automatically on every bo
 
 ---
 
+## Development
+
+### Clone
+
+This repository uses Git submodules (mruby/c, picoruby, pico-sdk, etc.).
+Clone with:
+
+```bash
+git clone --recurse-submodules https://github.com/lumbermill/prremote.git
+```
+
+If you already cloned without `--recurse-submodules`:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Build the runtime firmware
+
+Requires the ARM cross-compiler (`arm-none-eabi-gcc`) and CMake.
+
+```bash
+cd runtime/
+rake cache   # build UF2 for pico and picow → ~/.prremote/runtime/
+```
+
+### Run the tests
+
+```bash
+bundle exec rake test
+```
+
+---
+
 ## License
 
 [MIT License](LICENSE)
