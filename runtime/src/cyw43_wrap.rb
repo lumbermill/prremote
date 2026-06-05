@@ -1,13 +1,8 @@
-# Ruby API modelled on picoruby-cyw43:
-#   mrbgems/picoruby-cyw43/mrblib/cyw43.rb
-# Method names, Auth constants, and ConnectTimeout are taken directly from
-# that file so user scripts are portable between prremote and picoruby.
-# The underlying C primitives (_cyw43_*, _wifi_*) differ — they are defined
-# in bindings_cyw43.c against the plain mruby/c ABI instead of picoruby.
+# CYW43 module — prremote-specific API.
+# Auth constants are taken from picoruby-cyw43 (mrbgems/picoruby-cyw43/mrblib/cyw43.rb).
+# C primitives (_cyw43_*, _wifi_*) are defined in bindings_cyw43.c.
 module CYW43
-  class ConnectTimeout < RuntimeError; end
-
-  # Copied from picoruby-cyw43/mrblib/cyw43.rb (CYW43::Auth).
+  # Constants copied from picoruby-cyw43/mrblib/cyw43.rb.
   class Auth
     OPEN           = 0
     WPA_TKIP_PSK   = 0x00200002
@@ -31,33 +26,6 @@ module CYW43
     _cyw43_disable_sta_mode
   end
 
-  # connect_timeout(ssid, pass, auth = Auth::WPA2_AES_PSK, timeout_sec = 60)
-  # Raises CYW43::ConnectTimeout on failure.
-  def self.connect_timeout(ssid, pass, auth = Auth::WPA2_AES_PSK, timeout = 60)
-    result = _wifi_connect(ssid, pass, auth, timeout * 1000)
-    raise CYW43::ConnectTimeout, "WiFi connect failed" if result != 0
-  end
-
-  def self.disconnect
-    _wifi_disconnect
-  end
-
-  def self.tcpip_link_status
-    _wifi_link_status
-  end
-
-  def self.ipv4_address
-    _wifi_ipv4_address
-  end
-
-  def self.ipv4_netmask
-    _wifi_ipv4_netmask
-  end
-
-  def self.ipv4_gateway
-    _wifi_ipv4_gateway
-  end
-
   class GPIO
     LED_PIN = 0
 
@@ -71,6 +39,55 @@ module CYW43
 
     def read
       _cyw43_gpio_get(@pin) != 0
+    end
+  end
+
+  module WiFi
+    class ConnectTimeout < RuntimeError; end
+    class ConnectError   < RuntimeError; end
+
+    # Link status codes from cyw43_ll.h (cyw43_tcpip_link_status return values).
+    LINK_DOWN    =  0
+    LINK_JOIN    =  1
+    LINK_NOIP    =  2
+    LINK_UP      =  3
+    LINK_FAIL    = -1
+    LINK_NONET   = -2
+    LINK_BADAUTH = -3
+
+    # Raises ConnectError on auth failure, ConnectTimeout on timeout or other error.
+    # If the chip is already connected, the existing session is reused and no
+    # re-authentication occurs. Call disconnect explicitly before reconnecting.
+    def self.connect(ssid, pass, auth = CYW43::Auth::WPA2_AES_PSK, timeout = 60)
+      _cyw43_enable_sta_mode
+      _wifi_disconnect
+      result = _wifi_connect(ssid, pass, auth, timeout * 1000)
+      return if result == 0
+      if _wifi_link_status == LINK_BADAUTH
+        raise ConnectError, "Authentication failed"
+      else
+        raise ConnectTimeout, "WiFi connect timed out"
+      end
+    end
+
+    def self.disconnect
+      _wifi_disconnect
+    end
+
+    def self.link_status
+      _wifi_link_status
+    end
+
+    def self.ipv4_address
+      _wifi_ipv4_address
+    end
+
+    def self.ipv4_netmask
+      _wifi_ipv4_netmask
+    end
+
+    def self.ipv4_gateway
+      _wifi_ipv4_gateway
     end
   end
 end

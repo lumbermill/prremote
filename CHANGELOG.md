@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-06-05
+
+### Changed
+
+- Runtime: CYW43 WiFi methods moved into `CYW43::WiFi` sub-module to prepare for future Bluetooth support (`CYW43::BT`).
+  - `CYW43.connect_timeout` → `CYW43::WiFi.connect`
+  - `CYW43.disconnect` → `CYW43::WiFi.disconnect`
+  - `CYW43.tcpip_link_status` → `CYW43::WiFi.link_status`
+  - `CYW43.ipv4_address/netmask/gateway` → `CYW43::WiFi.ipv4_address/netmask/gateway`
+  - `CYW43::ConnectTimeout` → `CYW43::WiFi::ConnectTimeout`
+  - New: `CYW43::WiFi::ConnectError` raised on authentication failure (previously subsumed into `ConnectTimeout`)
+  - New: `CYW43::WiFi::LINK_*` constants for link status codes
+  - `CYW43::WiFi.connect` now calls `enable_sta_mode` internally; callers no longer need to call `CYW43.enable_sta_mode` before connecting
+  - `CYW43.init`, `CYW43.enable_sta_mode`, `CYW43::Auth`, `CYW43::GPIO` are unchanged.
+
 ### Fixed
 
 - `run`, `deploy`, `ls`: send `\x03` (Ctrl+C) immediately after opening the serial port to force the device to re-emit `READY`. On macOS, USB CDC TX buffers are dropped when the host closes the port, leaving the device waiting in `getchar()` without re-sending `READY`, causing a "Timeout waiting for device" error on the next invocation.
