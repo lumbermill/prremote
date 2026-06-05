@@ -1,5 +1,8 @@
 RUNTIME_VERSION = File.read("../VERSION").strip
 
+# Default to the bundled pico-sdk submodule if PICO_SDK_PATH is not set.
+ENV['PICO_SDK_PATH'] ||= File.expand_path('pico-sdk', __dir__)
+
 # gem board label => cmake PICO_BOARD value
 BOARDS = {
   'picow' => 'pico_w',
