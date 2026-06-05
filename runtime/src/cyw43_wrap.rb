@@ -55,16 +55,19 @@ module CYW43
     LINK_NONET   = -2
     LINK_BADAUTH = -3
 
-    # Raises ConnectError on auth failure, ConnectTimeout on timeout or other error.
+    # Raises ConnectError on connection-level failure (bad auth, AP not found, etc.)
+    # Raises ConnectTimeout when the timeout expires without success.
     # If the chip is already connected, the existing session is reused and no
     # re-authentication occurs. Call disconnect explicitly before reconnecting.
     def self.connect(ssid, pass, auth = CYW43::Auth::WPA2_AES_PSK, timeout = 60)
       _cyw43_enable_sta_mode
-      _wifi_disconnect
       result = _wifi_connect(ssid, pass, auth, timeout * 1000)
       return if result == 0
-      if _wifi_link_status == LINK_BADAUTH
+      status = _wifi_link_status
+      if status == LIN_BADAUTH
         raise ConnectError, "Authentication failed"
+      elsif status < 0
+        raise ConnectError, "Connection failed (status: #{status})"
       else
         raise ConnectTimeout, "WiFi connect timed out"
       end
