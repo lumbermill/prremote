@@ -64,7 +64,7 @@ module CYW43
       result = _wifi_connect(ssid, pass, auth, timeout * 1000)
       return if result == 0
       status = _wifi_link_status
-      if status == LIN_BADAUTH
+      if status == LINK_BADAUTH
         raise ConnectError, "Authentication failed"
       elsif status < 0
         raise ConnectError, "Connection failed (status: #{status})"
