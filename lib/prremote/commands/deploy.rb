@@ -61,7 +61,7 @@ module Prremote
         buf = +''
         deadline = Time.now + 30
         loop do
-          chunk = normalize(serial.read(256) || '')
+          chunk = normalize(safe_read(serial, 256))
           buf << chunk unless chunk.empty?
 
           return if buf.include?("DEPLOYED\n")

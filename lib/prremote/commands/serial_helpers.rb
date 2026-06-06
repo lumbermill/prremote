@@ -11,7 +11,7 @@ module Prremote
         buf = +''
         deadline = Time.now + 10
         loop do
-          buf << normalize(serial.read(256) || '')
+          buf << normalize(safe_read(serial, 256))
           if buf.include?('READY ')
             warn_if_runtime_outdated(buf)
             return
@@ -24,6 +24,14 @@ module Prremote
 
       def normalize(str)
         str.gsub("\r\n", "\n").gsub("\r", '')
+      end
+
+      # Wraps serial.read so that a device disconnect (e.g. ENXIO on macOS when
+      # the Pico resets) surfaces as a human-readable error instead of a bare errno name.
+      def safe_read(serial, size)
+        serial.read(size) || ''
+      rescue RubySerial::Error => e
+        raise "Device disconnected (#{e.message}). Run `prremote reset` if the device is unresponsive."
       end
 
       private

@@ -48,7 +48,7 @@ module Prremote
         post_running = wait_for_running(serial)
         stream_until_done(serial, post_running)
       rescue Interrupt
-        serial&.write("\x03")
+        serial&.write("\x03") rescue nil
         sleep 0.1
         raise
       ensure
@@ -59,7 +59,7 @@ module Prremote
         buf = +''
         deadline = Time.now + 10
         loop do
-          chunk = normalize(serial.read(256) || '')
+          chunk = normalize(safe_read(serial, 256))
           unless chunk.empty?
             debug "recv: #{chunk.inspect}"
             buf << chunk
@@ -79,7 +79,7 @@ module Prremote
       def stream_until_done(serial, initial = +'')
         buf = initial
         loop do
-          buf << normalize(serial.read(256) || '')
+          buf << normalize(safe_read(serial, 256))
 
           if (done_pos = buf.index("DONE\n"))
             $stdout.print buf[0, done_pos] unless done_pos.zero?
