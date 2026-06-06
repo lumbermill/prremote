@@ -44,7 +44,10 @@ Metrics/BlockLength:
     - "spec/**/*"
 
 Layout/LineLength:
-  Max: 120
+  Max: 130
+
+Style/NumericPredicate:
+  Enabled: false
 
 Gemspec/DevelopmentDependencies:
   Enabled: false
