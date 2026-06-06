@@ -49,6 +49,9 @@ Layout/LineLength:
 Style/NumericPredicate:
   Enabled: false
 
+Style/RegexpLiteral:
+  Enabled: false
+
 Gemspec/DevelopmentDependencies:
   Enabled: false
 
