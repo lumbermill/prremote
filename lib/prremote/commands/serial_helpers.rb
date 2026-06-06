@@ -12,7 +12,10 @@ module Prremote
         deadline = Time.now + 10
         loop do
           buf << normalize(serial.read(256) || '')
-          return if buf.include?('READY ')
+          if buf.include?('READY ')
+            warn_if_runtime_outdated(buf)
+            return
+          end
           raise 'Timeout waiting for device. Run `prremote reset` if a script is running.' if Time.now > deadline
 
           sleep 0.05
@@ -21,6 +24,21 @@ module Prremote
 
       def normalize(str)
         str.gsub("\r\n", "\n").gsub("\r", '')
+      end
+
+      private
+
+      def warn_if_runtime_outdated(buf)
+        m = buf.match(/READY prremote-runtime\/(\S+)/)
+        return unless m
+
+        runtime_ver = Gem::Version.new(m[1])
+        gem_ver     = Gem::Version.new(Prremote::VERSION)
+        return unless runtime_ver < gem_ver
+
+        warn "WARNING: runtime version #{m[1]} is older than prremote #{Prremote::VERSION}. Run `prremote install` to update."
+      rescue ArgumentError
+        # ignore unparseable version strings
       end
     end
   end

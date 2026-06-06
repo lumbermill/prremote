@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `run`, `deploy`: warn when the runtime firmware version is older than the gem and prompt the user to run `prremote install`.
+
 ### Fixed
 
 - `prremote run`: flush output line-by-line instead of waiting for 512-byte buffer, so `puts` results appear immediately during debugging.
