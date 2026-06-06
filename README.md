@@ -163,8 +163,8 @@ Show the gem version, mrbc version, and the connected device's runtime version.
 
 ```bash
 prremote version
-# prremote: 0.1.6
-# runtime:  0.1.6 (/dev/tty.usbmodem101)
+# prremote: 0.1.7
+# runtime:  0.1.7 (/dev/tty.usbmodem101)
 # mrbc: mruby 4.0.0 (2026-04-20) (/opt/homebrew/bin/mrbc)
 ```
 

@@ -7,13 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-06-06
+
 ### Added
 
 - `run`, `deploy`: warn when the runtime firmware version is older than the gem and prompt the user to run `prremote install`.
 
 ### Fixed
 
+- `run`, `deploy`: device disconnect during execution (e.g. ENXIO on macOS when the Pico resets unexpectedly) now shows a human-readable error instead of a bare errno name.
 - `prremote run`: flush output line-by-line instead of waiting for 512-byte buffer, so `puts` results appear immediately during debugging.
+- Runtime: `CYW43::WiFi.connect` no longer calls `disconnect` before connecting. If already connected the existing session is reused; call `disconnect` explicitly to force reconnection.
 
 ## [0.1.6] - 2026-06-05
 
