@@ -100,6 +100,33 @@ class SPI
   end
 end
 
+# On-chip temperature sensor (ADC channel 4, internal — no GPIO pin needed).
+# RP2040 datasheet §4.9.5: T(°C) = 27 - (Vbe - 0.706) / 0.001721
+# where Vbe = raw_12bit * 3.3 / 4096.
+class Temperature
+  CHANNEL = 4
+
+  def initialize
+    _adc_temp_enable
+  end
+
+  # Returns raw 12-bit ADC reading (0-4095).
+  def read
+    _adc_select_input(CHANNEL)
+    _adc_read
+  end
+
+  def celsius
+    raw = read
+    vbe = raw * 3.3 / 4096.0
+    27.0 - (vbe - 0.706) / 0.001721
+  end
+
+  def fahrenheit
+    celsius * 9.0 / 5.0 + 32.0
+  end
+end
+
 class I2C
   DEFAULT_FREQUENCY = 100_000
   DEFAULT_TIMEOUT   = 500

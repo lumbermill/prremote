@@ -8,10 +8,10 @@ i2c = I2C.new(unit: :RP2040_I2C0, sda_pin: 4, scl_pin: 5, frequency: 400_000)
 
 loop do
   # Write register pointer 0x00 (temperature MSB), then read 2 bytes.
-  data = i2c.read(0x48, 2, 0x00)
-  if data
-    raw = ((data[0] << 8) | data[1]) >> 3  # 13-bit value
-    raw -= 8192 if raw >= 4096             # two's complement for negative temps
+  bytes = i2c.read(0x48, 2, 0x00)&.bytes
+  if bytes
+    raw = ((bytes[0] << 8) | bytes[1]) >> 3  # 13-bit value
+    raw -= 8192 if raw >= 4096               # two's complement for negative temps
     puts "#{raw / 16.0} C"
   else
     puts "read error"

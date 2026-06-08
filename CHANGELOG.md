@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Runtime: `Temperature` class for reading the RP2040 on-chip temperature sensor (ADC channel 4). `Temperature.new.celsius` / `.fahrenheit` — no external wiring needed.
+- Sample: `test/samples/temperature.rb` — on-chip temperature, 10 readings with 1-second interval.
+- Sample: `test/samples/i2c_adt7410.rb` (renamed from `i2c.rb`) — ADT7410 I2C temperature sensor; fixed byte extraction to use `String#bytes` for correct integer values.
+- Sample: `test/samples/i2c_scan.rb` — scan all I2C addresses and print responding ones.
+
 ## [0.1.7] - 2026-06-06
 
 ### Added
