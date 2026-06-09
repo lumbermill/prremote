@@ -1,7 +1,7 @@
 # Device: Pico / Pico W — MCP3208 8-channel 12-bit SPI ADC
 # Wiring: SCK(CLK) → GPIO 18, CIPO(DOUT) → GPIO 16, COPI(DIN) → GPIO 19, CS → GPIO 17
 #         VDD/VREF → 3.3V, AGND/DGND → GND
-#   Note: See also adc.rb (Pico(W) already has A/D converter, this is just a demo for SPI connection) 
+#   Note: See also adc.rb (Pico(W) already has A/D converter, this is just a demo for SPI connection)
 
 spi = SPI.new(unit: :RP2040_SPI0,
               sck_pin: 18, cipo_pin: 16, copi_pin: 19, cs_pin: 17,
