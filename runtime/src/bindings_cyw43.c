@@ -16,6 +16,7 @@
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include <mrubyc.h>
+#include "ntp.h"
 
 /* Survives VM re-initialization across deploy cycles */
 static bool s_cyw43_initialized = false;
@@ -126,6 +127,18 @@ static void c_wifi_ipv4_gateway(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 /* ------------------------------------------------------------------ */
+/* NTP / SNTP                                                          */
+/* ------------------------------------------------------------------ */
+
+/* _ntp_gettime(host, timeout_ms) → Integer (Unix epoch UTC) or 0 on failure */
+static void c_ntp_gettime(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  const char *host       = (argc >= 1) ? (const char *)RSTRING_PTR(v[1]) : "pool.ntp.org";
+  int         timeout_ms = (argc >= 2) ? GET_INT_ARG(2) : 10000;
+  SET_INT_RETURN((mrbc_int_t)ntp_get_unix_time(host, timeout_ms));
+}
+
+/* ------------------------------------------------------------------ */
 /* Registration — called from runtime_define_methods() in bindings.c  */
 /* ------------------------------------------------------------------ */
 
@@ -143,4 +156,5 @@ void register_cyw43_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_wifi_ipv4_address",      c_wifi_ipv4_address);
   mrbc_define_method(0, mrbc_class_object, "_wifi_ipv4_netmask",      c_wifi_ipv4_netmask);
   mrbc_define_method(0, mrbc_class_object, "_wifi_ipv4_gateway",      c_wifi_ipv4_gateway);
+  mrbc_define_method(0, mrbc_class_object, "_ntp_gettime",            c_ntp_gettime);
 }

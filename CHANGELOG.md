@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Runtime (Pico W): `Time` class — SNTP-synced wall clock. `Time.new(offset: 9)` creates a JST clock; `.sync(host, interval: N, timeout: N)` fetches time via SNTP (UDP port 123, RFC 4330) with optional retry (`interval: nil` = single attempt, `timeout: nil` = no limit, `timeout: N` uses wall-clock via `uptime_ms`); `.sleep(n)` sleeps and advances the clock; `.epoch` returns seconds since Unix epoch (Integer); `t - epoch_int` / `t - other_time` returns elapsed seconds; `.year` / `.month` / `.day` / `.hour` / `.min` / `.sec` accessors; `.to_s` formats as `YYYY-MM-DDTHH:MM:SS±offset`.
+- Runtime: `uptime_ms` — milliseconds since boot (`Kernel` method, wraps at ~49 days). Uses `time_us_64()` from pico-sdk.
+- Runtime (Pico W): `ntp.c` — SNTP client over lwIP UDP raw API (`ntp_get_unix_time`). Exposed as `_ntp_gettime(host, timeout_ms)` Kernel method.
+- Sample: `test/samples/ntp_clock_picow.rb` — displays JST time with hourly NTP re-sync (rewritten to use `Time` class).
 - Runtime: `Temperature` class for reading the RP2040 on-chip temperature sensor (ADC channel 4). `Temperature.new.celsius` / `.fahrenheit` — no external wiring needed.
 - Sample: `test/samples/temperature.rb` — on-chip temperature, 10 readings with 1-second interval.
 - Sample: `test/samples/i2c_adt7410.rb` (renamed from `i2c.rb`) — ADT7410 I2C temperature sensor; fixed byte extraction to use `String#bytes` for correct integer values.

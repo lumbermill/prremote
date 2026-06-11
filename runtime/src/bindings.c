@@ -28,6 +28,15 @@ static void c_sleep(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 /* ------------------------------------------------------------------ */
+/* uptime_ms — milliseconds since boot (wraps ~49 days)               */
+/* ------------------------------------------------------------------ */
+
+static void c_uptime_ms(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN((mrbc_int_t)(time_us_64() / 1000));
+}
+
+/* ------------------------------------------------------------------ */
 /* Raw GPIO bindings                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -290,6 +299,7 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 void runtime_define_methods(void)
 {
   mrbc_define_method(0, mrbc_class_object, "sleep",           c_sleep);
+  mrbc_define_method(0, mrbc_class_object, "uptime_ms",      c_uptime_ms);
   mrbc_define_method(0, mrbc_class_object, "_gpio_init",      c_gpio_init);
   mrbc_define_method(0, mrbc_class_object, "_gpio_set_dir",   c_gpio_set_dir);
   mrbc_define_method(0, mrbc_class_object, "_gpio_pull_up",   c_gpio_pull_up);

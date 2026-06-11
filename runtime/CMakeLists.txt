@@ -129,8 +129,19 @@ if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
   )
   add_custom_target(socket_wrap_h DEPENDS ${CMAKE_SOURCE_DIR}/src/socket_wrap.h)
 
+  # time_wrap: Time class (NTP-synced clock) — Pico W only
+  add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/src/time_wrap.h
+    COMMAND ${MRBC_EXECUTABLE} -B time_wrap -o ${CMAKE_SOURCE_DIR}/src/time_wrap.h
+            ${CMAKE_SOURCE_DIR}/src/time_wrap.rb
+    DEPENDS ${CMAKE_SOURCE_DIR}/src/time_wrap.rb
+    COMMENT "Compiling time_wrap.rb → time_wrap.h"
+  )
+  add_custom_target(time_wrap_h DEPENDS ${CMAKE_SOURCE_DIR}/src/time_wrap.h)
+
   list(APPEND BOARD_SOURCES
     ${CMAKE_SOURCE_DIR}/src/bindings_cyw43.c
+    ${CMAKE_SOURCE_DIR}/src/ntp.c
     ${PICOSOCKET_DIR}/ports/rp2040/tcp_socket.c
     ${CMAKE_SOURCE_DIR}/src/net_helpers.c
     ${CMAKE_SOURCE_DIR}/src/mdns_resolver.c
@@ -140,7 +151,7 @@ if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
   list(APPEND BOARD_INCLUDES ${PICOSOCKET_DIR}/include)
   list(APPEND BOARD_DEFINES  HAS_CYW43=1)
   list(APPEND BOARD_LIBS     pico_cyw43_arch_lwip_threadsafe_background)
-  list(APPEND BOARD_DEPS     cyw43_wrap_h socket_wrap_h)
+  list(APPEND BOARD_DEPS     cyw43_wrap_h socket_wrap_h time_wrap_h)
 
   # picoruby-socket sources include "picoruby.h"; inject compat header only for those files
   set_source_files_properties(

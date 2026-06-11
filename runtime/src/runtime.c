@@ -14,6 +14,7 @@
 #ifdef HAS_CYW43
 #include "cyw43_wrap.h"
 #include "socket_wrap.h"
+#include "time_wrap.h"
 #endif
 
 #define MRB_BUFFER_SIZE (32 * 1024)
@@ -158,6 +159,11 @@ static void exec_mrb(void)
   }
   if (mrbc_create_task(socket_wrap, NULL) == NULL) {
     printf("ERROR socket_wrap\n");
+    stdio_flush();
+    return;
+  }
+  if (mrbc_create_task(time_wrap, NULL) == NULL) {
+    printf("ERROR time_wrap\n");
     stdio_flush();
     return;
   }
