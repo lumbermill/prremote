@@ -1,0 +1,26 @@
+CONFIG_IDF_TARGET="esp32"
+
+# 4 MB layout works on any ESP32 board (M5GO has 16 MB; extra space unused).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# The serial protocol runs on the UART0 console (no native USB on ESP32).
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+
+# Keep boot/app logs from polluting the READY protocol stream.
+CONFIG_BOOTLOADER_LOG_LEVEL_ERROR=y
+CONFIG_LOG_DEFAULT_LEVEL_ERROR=y
+
+# The mruby/c VM runs inside app_main's task.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
+# 1 ms tick so sleep() granularity matches the Pico runtime.
+CONFIG_FREERTOS_HZ=1000
+
+# A busy Ruby loop legitimately starves the idle task; the task watchdog
+# would print warnings into the protocol stream, so keep it off.
+CONFIG_ESP_TASK_WDT_INIT=n
+
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y

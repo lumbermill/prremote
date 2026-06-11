@@ -1,0 +1,8 @@
+# prremote ESP32 partition table (4 MB flash layout; safe on larger chips).
+# "prremote" is the deployed-script storage: PRRD header + .mrb payload,
+# byte-compatible with the Pico flash layout (see prr_platform.h).
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+phy_init,   data, phy,     0xf000,   0x1000
+factory,    app,  factory, 0x10000,  0x300000
+prremote,   data, 0x40,    0x310000, 0x10000

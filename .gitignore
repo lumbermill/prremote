@@ -1,4 +1,6 @@
 /runtime/build
+/runtime/esp32/build
+/runtime/esp32/sdkconfig
 /pkg
 
 .DS_Store

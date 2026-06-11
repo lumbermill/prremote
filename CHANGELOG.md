@@ -10,8 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Runtime: platform abstraction layer (`prr_platform.h`) — the serial protocol core (`runtime.c`) is now platform-neutral; all pico-sdk specifics (USB CDC stdio, XIP flash storage, watchdog reset) moved to `platform_pico.c`. No behavior change; groundwork for ESP32 support.
+- Runtime: `hw_wrap.rb` is now shared between the Pico and ESP32 builds. `I2C.new` / `SPI.new` accept `unit: 0` / `1` or `:I2C0` / `:SPI0` style symbols (`:RP2040_I2C0` etc. still work); the ADC pin→channel mapping moved to the C layer (`_adc_read_pin`).
 
 ### Added
+
+- Runtime: ESP32 (classic) support — new ESP-IDF project under `runtime/esp32/` implementing the same serial protocol (READY/RITE/DPLY/ERSE/QURY) on the UART0 console. Deployed scripts are stored in a dedicated `prremote` flash partition, byte-compatible with the Pico layout. GPIO / ADC / PWM (LEDC) / I2C / SPI bindings via ESP-IDF drivers in `bindings_esp32.c`. Requires ESP-IDF v5.3 to build.
+- Samples: `test/samples/esp32/` — `gpio.rb`, `i2c_scan_m5go.rb`, `buttons_m5go.rb` (M5GO / M5Stack Core)
 
 - Runtime (Pico W): `Time` class — SNTP-synced wall clock. `Time.new(offset: 9)` creates a JST clock; `.sync(host, interval: N, timeout: N)` fetches time via SNTP (UDP port 123, RFC 4330) with optional retry (`interval: nil` = single attempt, `timeout: nil` = no limit, `timeout: N` uses wall-clock via `uptime_ms`); `.sleep(n)` sleeps and advances the clock; `.epoch` returns seconds since Unix epoch (Integer); `t - epoch_int` / `t - other_time` returns elapsed seconds; `.year` / `.month` / `.day` / `.hour` / `.min` / `.sec` accessors; `.to_s` formats as `YYYY-MM-DDTHH:MM:SS±offset`.
 - Runtime: `uptime_ms` — milliseconds since boot (`Kernel` method, wraps at ~49 days). Uses `time_us_64()` from pico-sdk.

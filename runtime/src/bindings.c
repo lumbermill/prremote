@@ -95,6 +95,14 @@ static void c_adc_read(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_INT_RETURN((int)adc_read());
 }
 
+/* _adc_read_pin(pin) → raw 12-bit sample. The pin→channel mapping lives in
+ * the C layer so hw_wrap.rb stays platform-neutral (GPIO26 = channel 0). */
+static void c_adc_read_pin(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  adc_select_input(GET_INT_ARG(1) - 26);
+  SET_INT_RETURN((int)adc_read());
+}
+
 /* Enable the on-chip temperature sensor (ADC channel 4).
  * RP2040 datasheet §4.9.5: T(°C) = 27 - (Vbe - 0.706) / 0.001721
  * where Vbe = raw * 3.3 / 4096. */
@@ -309,6 +317,7 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_adc_init",         c_adc_init);
   mrbc_define_method(0, mrbc_class_object, "_adc_select_input", c_adc_select_input);
   mrbc_define_method(0, mrbc_class_object, "_adc_read",         c_adc_read);
+  mrbc_define_method(0, mrbc_class_object, "_adc_read_pin",     c_adc_read_pin);
   mrbc_define_method(0, mrbc_class_object, "_adc_temp_enable",  c_adc_temp_enable);
   mrbc_define_method(0, mrbc_class_object, "_pwm_gpio_init",    c_pwm_gpio_init);
   mrbc_define_method(0, mrbc_class_object, "_pwm_set_freq",     c_pwm_set_freq);
