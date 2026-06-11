@@ -149,7 +149,7 @@ if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
     ${CMAKE_SOURCE_DIR}/src/socket_init.c
   )
   list(APPEND BOARD_INCLUDES ${PICOSOCKET_DIR}/include)
-  list(APPEND BOARD_DEFINES  HAS_CYW43=1)
+  list(APPEND BOARD_DEFINES  HAS_WIFI=1 HAS_SOCKET=1)
   list(APPEND BOARD_LIBS     pico_cyw43_arch_lwip_threadsafe_background)
   list(APPEND BOARD_DEPS     cyw43_wrap_h socket_wrap_h time_wrap_h)
 

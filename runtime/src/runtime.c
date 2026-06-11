@@ -17,10 +17,12 @@
 
 #include "prr_platform.h"
 #include "hw_wrap.h"
-#ifdef HAS_CYW43
+#ifdef HAS_WIFI
 #include "cyw43_wrap.h"
-#include "socket_wrap.h"
 #include "time_wrap.h"
+#endif
+#ifdef HAS_SOCKET
+#include "socket_wrap.h"
 #endif
 #ifdef HAS_LCD
 #include "lcd_wrap.h"
@@ -78,19 +80,21 @@ static void exec_mrb(void)
     prr_flush();
     return;
   }
-#ifdef HAS_CYW43
+#ifdef HAS_WIFI
   if (mrbc_create_task(cyw43_wrap, NULL) == NULL) {
     printf("ERROR cyw43_wrap\n");
     prr_flush();
     return;
   }
-  if (mrbc_create_task(socket_wrap, NULL) == NULL) {
-    printf("ERROR socket_wrap\n");
+  if (mrbc_create_task(time_wrap, NULL) == NULL) {
+    printf("ERROR time_wrap\n");
     prr_flush();
     return;
   }
-  if (mrbc_create_task(time_wrap, NULL) == NULL) {
-    printf("ERROR time_wrap\n");
+#endif
+#ifdef HAS_SOCKET
+  if (mrbc_create_task(socket_wrap, NULL) == NULL) {
+    printf("ERROR socket_wrap\n");
     prr_flush();
     return;
   }

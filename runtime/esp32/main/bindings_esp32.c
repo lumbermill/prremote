@@ -473,6 +473,9 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 /* Register all methods — called after every mrbc_init()              */
 /* ------------------------------------------------------------------ */
 
+#ifdef HAS_WIFI
+void register_wifi_methods(void);
+#endif
 #ifdef HAS_LCD
 void register_lcd_methods(void);
 #endif
@@ -502,6 +505,9 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_spi_write",        c_spi_write);
   mrbc_define_method(0, mrbc_class_object, "_spi_read",         c_spi_read);
   mrbc_define_method(0, mrbc_class_object, "_spi_transfer",     c_spi_transfer);
+#ifdef HAS_WIFI
+  register_wifi_methods();
+#endif
 #ifdef HAS_LCD
   register_lcd_methods();
 #endif

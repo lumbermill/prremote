@@ -35,6 +35,7 @@ idf_component_register(
     ${PRR_SRC}/runtime.c
     platform_esp32.c
     bindings_esp32.c
+    bindings_wifi_esp32.c
     lcd_ili9342c.c
     ${MRUBYC_SOURCES}
   INCLUDE_DIRS
@@ -43,6 +44,7 @@ idf_component_register(
     ${MRUBYC_DIR}/src
     ${MRUBYC_DIR}/hal/esp32
   REQUIRES driver vfs esp_timer esp_partition spi_flash esp_adc esp_lcd
+           esp_wifi esp_netif nvs_flash
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
@@ -52,6 +54,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
   MAX_SYMBOLS_COUNT=500
   MRBC_SCHEDULER_EXIT=1
   HAS_LCD=1
+  HAS_WIFI=1
   RUNTIME_VERSION="${RUNTIME_VERSION}"
 )
 
@@ -90,6 +93,24 @@ add_custom_command(
 )
 add_custom_target(lcd_wrap_h DEPENDS ${PRR_SRC}/lcd_wrap.h)
 
+add_custom_command(
+  OUTPUT ${PRR_SRC}/cyw43_wrap.h
+  COMMAND ${MRBC_EXECUTABLE} -B cyw43_wrap -o ${PRR_SRC}/cyw43_wrap.h
+          ${PRR_SRC}/cyw43_wrap.rb
+  DEPENDS ${PRR_SRC}/cyw43_wrap.rb
+  COMMENT "Compiling cyw43_wrap.rb → cyw43_wrap.h"
+)
+add_custom_target(cyw43_wrap_h DEPENDS ${PRR_SRC}/cyw43_wrap.h)
+
+add_custom_command(
+  OUTPUT ${PRR_SRC}/time_wrap.h
+  COMMAND ${MRBC_EXECUTABLE} -B time_wrap -o ${PRR_SRC}/time_wrap.h
+          ${PRR_SRC}/time_wrap.rb
+  DEPENDS ${PRR_SRC}/time_wrap.rb
+  COMMENT "Compiling time_wrap.rb → time_wrap.h"
+)
+add_custom_target(time_wrap_h DEPENDS ${PRR_SRC}/time_wrap.h)
+
 # mruby/c autogen headers + mrblib bytecode (host-side make, idempotent).
 add_custom_command(
   OUTPUT ${MRUBYC_DIR}/src/_autogen_builtin_symbol.h
@@ -106,4 +127,4 @@ add_custom_command(
 )
 add_custom_target(mrubyc_mrblib DEPENDS ${MRUBYC_DIR}/src/mrblib.c)
 
-add_dependencies(${COMPONENT_LIB} hw_wrap_h lcd_wrap_h mrubyc_autogen mrubyc_mrblib)
+add_dependencies(${COMPONENT_LIB} hw_wrap_h lcd_wrap_h cyw43_wrap_h time_wrap_h mrubyc_autogen mrubyc_mrblib)

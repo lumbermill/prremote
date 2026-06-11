@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Runtime: `Integer#zero?` — returns `true` if the receiver is 0 (mruby/c does not include this by default).
 
+- Runtime (ESP32): WiFi support — `CYW43::WiFi.connect/disconnect`, `ipv4_address/netmask/gateway`, `CYW43::WiFi::ConnectError/ConnectTimeout` — same API as Pico W. Implemented via ESP-IDF `esp_wifi` + FreeRTOS EventGroup; `cyw43_wrap.rb` is now shared between both platforms. `CYW43.init` initialises NVS, netif, and the WiFi driver (idempotent).
+- Runtime (ESP32): NTP / `Time` class — `_ntp_gettime` implemented with `esp_sntp` (ESP-IDF 5.x); `time_wrap.rb` is now shared with the Pico W build. `Time.new(offset: 9).sync(host)` works identically on both platforms.
+- Samples: `test/samples/esp32/wifi.rb` — connect and print IP info. `test/samples/esp32/ntp_clock_m5go.rb` — NTP-synced JST clock on the M5GO LCD with hourly re-sync.
+- Build: `HAS_CYW43` compile flag renamed to `HAS_WIFI`; socket layer now guarded by separate `HAS_SOCKET` flag. Pico W sets both; ESP32 sets `HAS_WIFI` only (TCP socket support is a future task).
+
 - Runtime: ESP32 (classic) support — new ESP-IDF project under `runtime/esp32/` implementing the same serial protocol (READY/RITE/DPLY/ERSE/QURY) on the UART0 console. Deployed scripts are stored in a dedicated `prremote` flash partition, byte-compatible with the Pico layout. GPIO / ADC / PWM (LEDC) / I2C / SPI bindings via ESP-IDF drivers in `bindings_esp32.c`. Requires ESP-IDF v5.3 to build.
 - Samples: `test/samples/esp32/` — `gpio.rb`, `i2c_scan_m5go.rb`, `buttons_m5go.rb` (M5GO / M5Stack Core)
 - Runtime (ESP32): `LCD` class for ILI9342C SPI panels (M5GO / M5Stack Core gen1 pin defaults, all pins configurable). `fill` / `fill_rect` / `pixel` / `text` (built-in 8x8 font, scale 1-4) / `brightness=`. RGB565 colors via constants or `LCD.rgb(r, g, b)`. No framebuffer — pixels stream through 2 KB DMA buffers.
