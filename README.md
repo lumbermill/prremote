@@ -26,8 +26,6 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
     (`sudo apt install mruby` installs mruby 3.x which is **not compatible**)
   - If `mrbc` is not on your PATH, set the `MRBC` environment variable:
     `MRBC=/path/to/mrbc prremote run app.rb`
-- `esptool` for `install --board esp32` only
-  - `pip install esptool` (or `brew install esptool`); `$ESPTOOL` overrides the lookup
 
 ---
 
@@ -72,7 +70,7 @@ The firmware is downloaded from GitHub Releases on first use and cached in `~/.p
 
 Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
 
-ESP32 boards: no button dance needed — the firmware is written over the serial port with `esptool` (`pip install esptool`), which resets the chip into its boot ROM automatically.
+ESP32 boards: no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5). Reflashing the runtime does not erase a deployed script.
 
 ---
 

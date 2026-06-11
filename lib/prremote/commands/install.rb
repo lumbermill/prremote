@@ -34,15 +34,15 @@ module Prremote
 
       private
 
-      # No BOOTSEL dance on ESP32: esptool toggles DTR/RTS to enter the boot
-      # ROM by itself, so flashing works over the normal serial port.
+      # No BOOTSEL dance on ESP32: the flasher toggles DTR/RTS to enter the
+      # boot ROM by itself, so flashing works over the normal serial port.
       def install_esp32
         image = RuntimeManager.fetch(@version, @board)
         port  = @port || Detector.find_device
         raise 'No serial device found. Connect the board or pass --port.' unless port
 
         puts "Flashing #{File.basename(image)} to #{port}..."
-        Esptool.flash(port: port, image: image)
+        EspFlasher.flash(port: port, image_path: image)
         puts "Done. Runtime #{@version} installed."
       end
 
