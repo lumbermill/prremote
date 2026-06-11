@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sample: `test/samples/i2c_adt7410.rb` (renamed from `i2c.rb`) — ADT7410 I2C temperature sensor; fixed byte extraction to use `String#bytes` for correct integer values.
 - Sample: `test/samples/i2c_scan.rb` — scan all I2C addresses and print responding ones.
 
+### Fixed
+
+- Runtime: wrapper tasks (`hw_wrap` etc.) now run at a higher mruby/c scheduler priority than the user script. Previously all tasks shared the default priority and round-robined on timeslice expiry, so the user script could start while a wrapper class was only half defined and fail with `NoMethodError` (e.g. `GPIO#initialize` present but `GPIO#write` missing). The window widens with each additional wrapper task, which is how the ESP32 WiFi work exposed it.
+- Runtime: `mrb_buffer` (32 KB) and `memory_pool` (96 KB) are heap-allocated at startup instead of static arrays. As `.bss` data they shared the ESP32's ~180 KB static DRAM segment with the WiFi stack, exhausting it — the firmware boot-looped (`assert failed: esp_startup_start_app`) before printing `READY`. No functional change on Pico.
+
 ## [0.1.7] - 2026-06-06
 
 ### Added

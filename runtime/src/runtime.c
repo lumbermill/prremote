@@ -13,6 +13,7 @@
 
 #include <mrubyc.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "prr_platform.h"
@@ -31,8 +32,13 @@
 #define MRB_BUFFER_SIZE (32 * 1024)
 #define HEAP_SIZE       (96 * 1024)
 
-static uint8_t mrb_buffer[MRB_BUFFER_SIZE];
-static uint8_t memory_pool[HEAP_SIZE];
+/* Heap-allocated in prr_main: as static arrays they would live in .bss,
+ * which on the ESP32 shares a ~180 KB DRAM segment with the WiFi stack's
+ * static data — together they exhaust it and the FreeRTOS main task can no
+ * longer start (boot loop in esp_startup_start_app). The malloc heap spans
+ * DRAM regions .bss cannot use, so allocating at startup always fits. */
+static uint8_t *mrb_buffer;
+static uint8_t *memory_pool;
 
 void runtime_define_methods(void);
 
@@ -69,42 +75,39 @@ static bool recv_mrb(uint8_t *buf, uint32_t buf_size, uint32_t *out_size)
 
 /* ── execute whatever is in mrb_buffer ──────────────────────────────────── */
 
+/* Wrap tasks get a higher priority (lower number) than the user script
+ * (MRBC_TASK_DEFAULT_PRIORITY = 128) so all their class definitions complete
+ * before the user code runs. With equal priorities the scheduler round-robins
+ * on timeslice expiry and the user script can observe a half-defined class
+ * (e.g. GPIO#initialize present but GPIO#write missing yet). */
+static bool create_wrap_task(const void *bytecode, const char *name)
+{
+  mrbc_tcb *tcb = mrbc_create_task(bytecode, NULL);
+  if (tcb == NULL) {
+    printf("ERROR %s\n", name);
+    prr_flush();
+    return false;
+  }
+  mrbc_change_priority(tcb, 1);
+  return true;
+}
+
 static void exec_mrb(void)
 {
   mrbc_cleanup();
   mrbc_init(memory_pool, HEAP_SIZE);
   runtime_define_methods();
 
-  if (mrbc_create_task(hw_wrap, NULL) == NULL) {
-    printf("ERROR hw_wrap\n");
-    prr_flush();
-    return;
-  }
+  if (!create_wrap_task(hw_wrap, "hw_wrap")) return;
 #ifdef HAS_WIFI
-  if (mrbc_create_task(cyw43_wrap, NULL) == NULL) {
-    printf("ERROR cyw43_wrap\n");
-    prr_flush();
-    return;
-  }
-  if (mrbc_create_task(time_wrap, NULL) == NULL) {
-    printf("ERROR time_wrap\n");
-    prr_flush();
-    return;
-  }
+  if (!create_wrap_task(cyw43_wrap, "cyw43_wrap")) return;
+  if (!create_wrap_task(time_wrap, "time_wrap")) return;
 #endif
 #ifdef HAS_SOCKET
-  if (mrbc_create_task(socket_wrap, NULL) == NULL) {
-    printf("ERROR socket_wrap\n");
-    prr_flush();
-    return;
-  }
+  if (!create_wrap_task(socket_wrap, "socket_wrap")) return;
 #endif
 #ifdef HAS_LCD
-  if (mrbc_create_task(lcd_wrap, NULL) == NULL) {
-    printf("ERROR lcd_wrap\n");
-    prr_flush();
-    return;
-  }
+  if (!create_wrap_task(lcd_wrap, "lcd_wrap")) return;
 #endif
   if (mrbc_create_task(mrb_buffer, NULL) == NULL) {
     printf("ERROR exec\n");
@@ -125,6 +128,16 @@ static void exec_mrb(void)
 
 int prr_main(void)
 {
+  mrb_buffer  = malloc(MRB_BUFFER_SIZE);
+  memory_pool = malloc(HEAP_SIZE);
+  if (mrb_buffer == NULL || memory_pool == NULL) {
+    while (1) {
+      printf("ERROR out of memory\n");
+      prr_flush();
+      prr_sleep_ms(1000);
+    }
+  }
+
   /* On boot: run deployed script only on clean boot, not after a Ctrl+C reset.
    * Run before waiting for the host so the script works standalone. */
   if (prr_storage_has_script() && !prr_was_soft_reset()) {
