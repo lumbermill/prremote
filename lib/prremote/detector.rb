@@ -2,7 +2,16 @@ require 'rbconfig'
 
 module Prremote
   class Detector
-    R2P2_VENDOR_IDS = %w[2e8a].freeze # Raspberry Pi USB VID
+    # Known USB vendor IDs → device label and the macOS port-name pattern.
+    # Pico exposes native USB CDC (usbmodem); ESP32 boards sit behind a
+    # USB-UART bridge (usbserial): CP210x on M5GO/M5Stack, CH910x on newer
+    # revisions.
+    KNOWN_VENDORS = {
+      '2e8a' => { label: 'Pico (prremote/R2P2)', macos: /usbmodem/ },
+      '10c4' => { label: 'ESP32 (CP210x)',       macos: /usbserial/ },
+      '1a86' => { label: 'ESP32 (CH910x)',       macos: /usbserial/ }
+    }.freeze
+    R2P2_VENDOR_IDS = %w[2e8a].freeze # Raspberry Pi USB VID (kept for compat)
 
     def self.find_device
       new.find_device
@@ -12,14 +21,13 @@ module Prremote
       candidates = serial_ports
       return candidates.first if candidates.size == 1
 
-      r2p2 = candidates.select { |p| r2p2_port?(p) }
-      r2p2.first || candidates.first
+      known = candidates.select { |p| known_port?(p) }
+      known.first || candidates.first
     end
 
     def list_devices
       serial_ports.map do |port|
-        label = r2p2_port?(port) ? 'R2P2/PicoRuby' : 'unknown'
-        { port: port, label: label }
+        { port: port, label: port_label(port) || 'unknown' }
       end
     end
 
@@ -45,23 +53,31 @@ module Prremote
       end
     end
 
-    def r2p2_port?(port)
-      # On macOS/Linux, check sysfs or ioreg for the Raspberry Pi VID
+    def known_port?(port)
+      !port_label(port).nil?
+    end
+
+    def port_label(port)
+      # On macOS/Linux, check ioreg or sysfs for a known vendor ID
       case RbConfig::CONFIG['host_os']
       when /darwin/
-        ioreg_output = `ioreg -p IOUSB -l 2>/dev/null`
-        R2P2_VENDOR_IDS.any? { |vid| ioreg_output.include?(vid) } &&
-          port.match?(/usbmodem/)
+        ioreg_output = ioreg_usb
+        KNOWN_VENDORS.each do |vid, info|
+          return info[:label] if ioreg_output.include?(vid) && port.match?(info[:macos])
+        end
+        nil
       when /linux/
         port_name = File.basename(port)
         vid_path = "/sys/class/tty/#{port_name}/device/../../../idVendor"
-        return false unless File.exist?(vid_path)
+        return nil unless File.exist?(vid_path)
 
         vid = File.read(vid_path).strip.downcase
-        R2P2_VENDOR_IDS.include?(vid)
-      else
-        false
+        KNOWN_VENDORS.dig(vid, :label)
       end
+    end
+
+    def ioreg_usb
+      @ioreg_usb ||= `ioreg -p IOUSB -l 2>/dev/null`
     end
   end
 end

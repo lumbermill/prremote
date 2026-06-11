@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Samples: `test/samples/esp32/` — `gpio.rb`, `i2c_scan_m5go.rb`, `buttons_m5go.rb` (M5GO / M5Stack Core)
 - Runtime (ESP32): `LCD` class for ILI9342C SPI panels (M5GO / M5Stack Core gen1 pin defaults, all pins configurable). `fill` / `fill_rect` / `pixel` / `text` (built-in 8x8 font, scale 1-4) / `brightness=`. RGB565 colors via constants or `LCD.rgb(r, g, b)`. No framebuffer — pixels stream through 2 KB DMA buffers.
 - Samples: `test/samples/esp32/lcd_hello.rb`, `test/samples/esp32/lcd_demo.rb` (color swatches + live counter, deployable)
+- `install --board esp32` — flashes the ESP32 runtime (single merged `.bin` at 0x0) over the serial port via `esptool` (detected from `$ESPTOOL` / PATH, v4 and v5 CLIs supported). No BOOTSEL equivalent needed.
+- `list` / port auto-detection now recognizes ESP32 USB-UART bridges (CP210x `10c4`, CH910x `1a86`) alongside the Raspberry Pi VID.
+- `run` / `deploy` etc.: `wait_for_ready` re-sends Ctrl+C every second — ESP32 boards reset when the port opens (DTR/RTS auto-reset) and the initial Ctrl+C could be lost during boot. Harmless on Pico.
+- `runtime/Rakefile`: `rake build:esp32` (ESP-IDF + esptool merge_bin), `rake build_all`; `rake cache` / `rake release` now cover esp32.
 
 - Runtime (Pico W): `Time` class — SNTP-synced wall clock. `Time.new(offset: 9)` creates a JST clock; `.sync(host, interval: N, timeout: N)` fetches time via SNTP (UDP port 123, RFC 4330) with optional retry (`interval: nil` = single attempt, `timeout: nil` = no limit, `timeout: N` uses wall-clock via `uptime_ms`); `.sleep(n)` sleeps and advances the clock; `.epoch` returns seconds since Unix epoch (Integer); `t - epoch_int` / `t - other_time` returns elapsed seconds; `.year` / `.month` / `.day` / `.hour` / `.min` / `.sec` accessors; `.to_s` formats as `YYYY-MM-DDTHH:MM:SS±offset`.
 - Runtime: `uptime_ms` — milliseconds since boot (`Kernel` method, wraps at ~49 days). Uses `time_us_64()` from pico-sdk.

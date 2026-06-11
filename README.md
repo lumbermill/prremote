@@ -2,7 +2,7 @@
 
 > ⚠️ This project is in early development. APIs and commands are subject to change.
 
-**prremote** is a command-line tool for deploying and running Ruby scripts on a Raspberry Pi Pico W over USB serial. It ships a minimal [mruby/c](https://github.com/mrubyc/mrubyc) runtime firmware and lets you compile and send `.rb` files from your Mac or Linux machine directly to the device.
+**prremote** is a command-line tool for deploying and running Ruby scripts on a Raspberry Pi Pico W or ESP32 (e.g. M5Stack) over USB serial. It ships a minimal [mruby/c](https://github.com/mrubyc/mrubyc) runtime firmware and lets you compile and send `.rb` files from your Mac or Linux machine directly to the device.
 
 Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) for MicroPython.
 
@@ -17,13 +17,17 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 ## Requirements
 
 - Ruby 3.4 or later
-- Raspberry Pi Pico W
+- A supported board:
+  - Raspberry Pi Pico W / Pico
+  - ESP32 (classic) — e.g. M5GO / M5Stack Core gen1, generic dev boards
 - `mrbc` (mruby 4.x) for `run`, `deploy`, and `eval`
   - macOS: `brew install mruby`
   - Linux: build from source — [github.com/mruby/mruby/releases](https://github.com/mruby/mruby/releases)
     (`sudo apt install mruby` installs mruby 3.x which is **not compatible**)
   - If `mrbc` is not on your PATH, set the `MRBC` environment variable:
     `MRBC=/path/to/mrbc prremote run app.rb`
+- `esptool` for `install --board esp32` only
+  - `pip install esptool` (or `brew install esptool`); `$ESPTOOL` overrides the lookup
 
 ---
 
@@ -54,18 +58,21 @@ prremote run app.rb
 
 ### `install`
 
-Flash the prremote runtime firmware to a Pico W or Pico.
+Flash the prremote runtime firmware to a Pico W, Pico, or ESP32.
 
 ```bash
 prremote install                          # Pico W (default)
 prremote install --board pico             # Pico (no wireless)
+prremote install --board esp32            # ESP32 (M5GO / M5Stack Core, etc.)
 prremote install --version 0.1.1          # specify a runtime version
 prremote install --board pico --version 0.1.1
 ```
 
 The firmware is downloaded from GitHub Releases on first use and cached in `~/.prremote/runtime/`. Subsequent installs use the cache.
 
-Put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
+Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
+
+ESP32 boards: no button dance needed — the firmware is written over the serial port with `esptool` (`pip install esptool`), which resets the chip into its boot ROM automatically.
 
 ---
 
@@ -209,7 +216,7 @@ prremote flashes a minimal C firmware (built on mruby/c) onto the Pico W. The fi
    - `DPLY` + `.mrb` bytecode → save to flash and confirm with `DEPLOYED` (`deploy`)
 3. Waits for the next command
 
-Scripts saved via `deploy` are stored in flash and run automatically on every boot. GPIO and WiFi (CYW43) C bindings are available in Ruby code running on the device.
+Scripts saved via `deploy` are stored in flash and run automatically on every boot. GPIO / ADC / PWM / I2C / SPI bindings are available on all boards; WiFi (CYW43) on the Pico W; an `LCD` class (ILI9342C) on ESP32 / M5Stack.
 
 ---
 
@@ -232,11 +239,29 @@ git submodule update --init --recursive
 
 ### Build the runtime firmware
 
-Requires the ARM cross-compiler (`arm-none-eabi-gcc`) and CMake.
+Pico boards require the ARM cross-compiler (`arm-none-eabi-gcc`) and CMake.
 
 ```bash
 cd runtime/
-rake cache   # build UF2 for pico and picow → ~/.prremote/runtime/
+rake build   # UF2 for pico and picow
+```
+
+The ESP32 runtime requires ESP-IDF v5.3, which is not vendored (it is several
+GB and installs its own toolchains). One-time setup:
+
+```bash
+mkdir -p ~/sources/esp
+git clone -b v5.3.2 --recursive --shallow-submodules \
+    https://github.com/espressif/esp-idf.git ~/sources/esp/esp-idf
+cd ~/sources/esp/esp-idf && ./install.sh esp32
+```
+
+Then (set `IDF_PATH` if you installed somewhere else):
+
+```bash
+cd runtime/
+rake build:esp32   # merged .bin for esp32
+rake cache         # build all boards → ~/.prremote/runtime/
 ```
 
 ### Run the tests

@@ -22,9 +22,12 @@ bundle install
 
 # 5. ローカルキャッシュにビルドを配置
 cd runtime/
-rake cache     # ビルド（pico + picow）→ ~/.prremote/runtime/ にコピー
+rake cache     # ビルド（pico + picow + esp32）→ ~/.prremote/runtime/ にコピー
+# 注: esp32 ビルドには ESP-IDF v5.3 が必要（デフォルト ~/sources/esp/esp-idf、
+#     submodule ではない。セットアップ手順は README.md の Development 参照。
+#     別の場所なら IDF_PATH で指定）
 
-# 6. GitHub draft リリース作成（UF2 アップロード）
+# 6. GitHub draft リリース作成（UF2 / bin アップロード）
 rake release
 # → draft のため GitHub 上でリリースノートを編集してから [Publish release]
 cd ..
@@ -51,8 +54,15 @@ git push origin main vX.X.X
 
 ### ランタイム（`runtime/src/`）の層別方針
 
-#### C 層（`bindings.c`, `bindings_cyw43.c`）— picoruby を参照しつつ独自実装
-- pico-sdk の API を mruby/c に直接バインドする独自コード。
+#### プラットフォーム抽象（`prr_platform.h`）
+- シリアルプロトコル本体 `runtime.c` はプラットフォーム中立。
+  ボード固有部は `platform_pico.c`（pico-sdk）と `esp32/main/platform_esp32.c`（ESP-IDF）が実装。
+- ESP32 ビルドは `runtime/esp32/` の ESP-IDF プロジェクト（v5.3、vendored しない）。
+  C バインディングは `esp32/main/bindings_esp32.c` が `bindings.c` と同名・同シグネチャで実装し、
+  Ruby 層（`hw_wrap.rb`, `lcd_wrap.rb`）は両ビルドで共有する。
+
+#### C 層（`bindings.c`, `bindings_cyw43.c`, `esp32/main/bindings_esp32.c`）— picoruby を参照しつつ独自実装
+- pico-sdk / ESP-IDF の API を mruby/c に直接バインドする独自コード。
 - picoruby の C ポート（`ports/rp2040/cyw43.c` 等）は**設計参照・部分引用**してよい。
   コピーした箇所はコメントで出典ファイルパスを明記すること。
 - ネットワーク層（`picoruby-socket`）の C ソースは**そのまま取り込む**。

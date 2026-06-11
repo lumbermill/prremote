@@ -3,12 +3,15 @@ require 'fileutils'
 module Prremote
   module Commands
     class Install
-      def initialize(version: VERSION, board: 'picow')
+      def initialize(version: VERSION, board: 'picow', port: nil)
         @version = version
         @board = board
+        @port = port
       end
 
       def call
+        return install_esp32 if @board == 'esp32'
+
         uf2_path = RuntimeManager.fetch(@version, @board)
 
         device_label = @board == 'picow' ? 'Pico W' : 'Pico'
@@ -30,6 +33,18 @@ module Prremote
       end
 
       private
+
+      # No BOOTSEL dance on ESP32: esptool toggles DTR/RTS to enter the boot
+      # ROM by itself, so flashing works over the normal serial port.
+      def install_esp32
+        image = RuntimeManager.fetch(@version, @board)
+        port  = @port || Detector.find_device
+        raise 'No serial device found. Connect the board or pass --port.' unless port
+
+        puts "Flashing #{File.basename(image)} to #{port}..."
+        Esptool.flash(port: port, image: image)
+        puts "Done. Runtime #{@version} installed."
+      end
 
       def volume_paths
         [

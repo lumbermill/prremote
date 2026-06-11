@@ -11,7 +11,7 @@ lcd.text(16, 12, "prremote demo", color: LCD::WHITE, scale: 3)
 colors = [LCD::RED, LCD::ORANGE, LCD::YELLOW, LCD::GREEN,
           LCD::CYAN, LCD::BLUE, LCD::MAGENTA, LCD::WHITE]
 colors.each_with_index do |c, i|
-  lcd.fill_rect(16 + i * 36, 56, 32, 32, c)
+  lcd.fill_rect(16 + (i * 36), 56, 32, 32, c)
 end
 
 lcd.text(16, 110, "uptime", color: LCD::CYAN, scale: 2)

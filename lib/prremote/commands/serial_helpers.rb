@@ -5,11 +5,15 @@ module Prremote
         # On macOS, USB CDC TX buffers can be dropped when the host reopens the port,
         # leaving the device stuck in getchar() without re-sending READY.
         # Sending Ctrl+C forces the device to restart its READY loop.
+        # Resent every second: ESP32 boards reset when the port opens (DTR/RTS
+        # auto-reset circuit) and a Ctrl+C sent while they are still booting
+        # is lost. Harmless on Pico — 0x03 while idle just re-prints READY.
         sleep 0.1
         serial.write("\x03") rescue nil
 
         buf = +''
-        deadline = Time.now + 10
+        deadline  = Time.now + 10
+        next_ctrl = Time.now + 1
         loop do
           buf << normalize(safe_read(serial, 256))
           if buf.include?('READY ')
@@ -18,6 +22,10 @@ module Prremote
           end
           raise 'Timeout waiting for device. Run `prremote reset` if a script is running.' if Time.now > deadline
 
+          if Time.now > next_ctrl
+            serial.write("\x03") rescue nil
+            next_ctrl = Time.now + 1
+          end
           sleep 0.05
         end
       end

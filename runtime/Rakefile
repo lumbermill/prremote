@@ -3,50 +3,82 @@ RUNTIME_VERSION = File.read("../VERSION").strip
 # Default to the bundled pico-sdk submodule if PICO_SDK_PATH is not set.
 ENV['PICO_SDK_PATH'] ||= File.expand_path('pico-sdk', __dir__)
 
-# gem board label => cmake PICO_BOARD value
+# ESP-IDF is not vendored (it is several GB with its own toolchain installer);
+# see ../README.md for setup. Override with IDF_PATH if installed elsewhere.
+IDF_PATH = ENV['IDF_PATH'] || File.expand_path('~/sources/esp/esp-idf')
+
+# gem board label => cmake PICO_BOARD value (Pico-family boards only;
+# esp32 is built by ESP-IDF, see build:esp32)
 BOARDS = {
   'picow' => 'pico_w',
   'pico'  => 'pico'
 }.freeze
 
+# gem board label => built artifact path (all boards, for cache/release)
+def artifact(label)
+  ext = label == 'esp32' ? 'bin' : 'uf2'
+  "build/#{label}/prremote-#{label}-runtime-#{RUNTIME_VERSION}.#{ext}"
+end
+
+ALL_BOARDS = (BOARDS.keys + ['esp32']).freeze
+
 namespace :build do
   BOARDS.each do |label, cmake_board|
-    uf2 = "prremote-#{label}-runtime-#{RUNTIME_VERSION}.uf2"
-    desc "Build build/#{label}/#{uf2}"
+    desc "Build #{artifact(label)}"
     task label.to_sym do
       cmake_ensure(label, cmake_board)
       sh "make -C build/#{label} runtime"
-      puts "Output: build/#{label}/#{uf2}"
+      puts "Output: #{artifact(label)}"
     end
+  end
+
+  desc "Build #{artifact('esp32')} (requires ESP-IDF at #{IDF_PATH})"
+  task :esp32 do
+    unless File.exist?(File.join(IDF_PATH, 'export.sh'))
+      abort "ESP-IDF not found at #{IDF_PATH}.\n" \
+            "Install it (see README.md) or set IDF_PATH."
+    end
+    idf "idf.py build", chdir: 'esp32'
+
+    # Merge bootloader + partition table + app into one image flashed at 0x0,
+    # so `prremote install --board esp32` needs a single download/esptool call.
+    mkdir_p 'build/esp32'
+    idf "esptool.py --chip esp32 merge_bin -o ../#{artifact('esp32')} " \
+        "--flash_mode dio --flash_freq 40m --flash_size 4MB " \
+        "0x1000 build/bootloader/bootloader.bin " \
+        "0x8000 build/partition_table/partition-table.bin " \
+        "0x10000 build/prremote-esp32-runtime.bin",
+        chdir: 'esp32'
+    puts "Output: #{artifact('esp32')}"
   end
 end
 
-desc "Build UF2 for all boards (#{BOARDS.keys.join(', ')})"
+desc "Build UF2 for Pico boards (#{BOARDS.keys.join(', ')}); esp32 via build:esp32"
 task build: BOARDS.keys.map { |b| :"build:#{b}" }
+
+desc "Build all boards including esp32"
+task build_all: ALL_BOARDS.map { |b| :"build:#{b}" }
 
 task default: :build
 
-desc "Copy UF2 files for all boards into ~/.prremote/runtime/ (local gem cache)"
-task cache: :build do
+desc "Copy runtime images for all boards into ~/.prremote/runtime/ (local gem cache)"
+task cache: :build_all do
   cache_dir = File.join(Dir.home, '.prremote', 'runtime')
   mkdir_p cache_dir
-  BOARDS.keys.each do |label|
-    src = "build/#{label}/prremote-#{label}-runtime-#{RUNTIME_VERSION}.uf2"
-    cp src, cache_dir
-    puts "Cached: #{File.join(cache_dir, File.basename(src))}"
+  ALL_BOARDS.each do |label|
+    cp artifact(label), cache_dir
+    puts "Cached: #{File.join(cache_dir, File.basename(artifact(label)))}"
   end
 end
 
-desc "Create draft GitHub release runtime-#{RUNTIME_VERSION} with UF2 assets for all boards"
-task release: :build do
+desc "Create draft GitHub release runtime-#{RUNTIME_VERSION} with assets for all boards"
+task release: :build_all do
   tag    = "runtime-#{RUNTIME_VERSION}"
   title  = "Runtime #{RUNTIME_VERSION}"
-  assets = BOARDS.keys.map do |label|
-    "build/#{label}/prremote-#{label}-runtime-#{RUNTIME_VERSION}.uf2"
-  end
+  assets = ALL_BOARDS.map { |label| artifact(label) }
 
   missing = assets.reject { |f| File.exist?(f) }
-  abort "Missing assets:\n#{missing.map { |f| "  #{f}" }.join("\n")}\nRun `rake build` first." unless missing.empty?
+  abort "Missing assets:\n#{missing.map { |f| "  #{f}" }.join("\n")}\nRun `rake build_all` first." unless missing.empty?
 
   sh "gh release create #{tag} #{assets.join(' ')} --title \"#{title}\" --draft --generate-notes"
   puts
@@ -57,6 +89,7 @@ end
 desc "Remove all build directories"
 task :clean do
   rm_rf "build"
+  rm_rf "esp32/build"
 end
 
 def cmake_init(label, cmake_board)
@@ -68,4 +101,10 @@ def cmake_ensure(label, cmake_board)
   makefile = "build/#{label}/Makefile"
   cmake_init(label, cmake_board) if !File.exist?(makefile) ||
                                     File.mtime("CMakeLists.txt") > File.mtime(makefile)
+end
+
+# Runs a command inside the ESP-IDF environment (export.sh sets up the
+# toolchain PATH and the python venv that provides idf.py / esptool.py).
+def idf(cmd, chdir:)
+  sh %(bash -c 'source "#{IDF_PATH}/export.sh" >/dev/null 2>&1 && cd #{chdir} && #{cmd}')
 end

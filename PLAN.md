@@ -31,43 +31,20 @@ BOOTSEL モードでは USB PID・ボリューム名・`INFO_UF2.TXT` がすべ�
 
 ## ESP32 対応
 
-### 現状把握
+**2026-06-11: ESP32 classic 対応を実装済み**（WiFi を除く）。構成:
 
-mruby/c には既に `hal/esp32/hal.c` が存在する。mruby/c 層は対応済みのため、必要な作業は prremote 独自の部分に絞られる。
+- `runtime/src/prr_platform.h` — プラットフォーム抽象。`runtime.c`（プロトコル本体）は中立化し、`platform_pico.c` / `runtime/esp32/main/platform_esp32.c` がボード固有部を実装
+- `runtime/esp32/` — ESP-IDF v5.3 プロジェクト（UART0 コンソール、RX の行末変換無効化でバイナリ安全）。ESP-IDF は vendored しない（~/sources/esp/esp-idf、IDF_PATH で変更可）
+- deploy 保存先はカスタム data パーティション `prremote`（64KB、PRRD ヘッダは Pico とバイト互換 → gem の deploy/ls/undeploy 無修正）
+- `bindings_esp32.c` — GPIO/ADC(oneshot)/PWM(LEDC)/I2C(i2c_master)/SPI(spi_master)。`hw_wrap.rb` は両ビルド共有（ADC の pin→ch 変換は C 層へ、unit シンボル汎用化）
+- Ctrl+C リセット: esp_timer 監視 + `esp_restart()`、`ESP_RST_SW` で自動実行抑止。ポート open 時の DTR/RTS リセットは「自動実行→0x03→READY」に収束
+- gem: `--board esp32`（esptool で merged bin を 0x0 に書き込み）、detector に CP210x/CH910x VID 追加
+- ビルド: `cd runtime && rake build:esp32`、`rake cache` / `rake release` は 3 ボード対応
 
-runtime のソース構成（`runtime/src/`）:
+### 残タスク
 
-| ファイル | 内容 | ESP32 対応コスト |
-|---|---|---|
-| `runtime.c` | シリアルプロトコル本体（RUN/ERSE/DPLY 等） | 小: stdio 初期化だけ変わる |
-| `bindings.c` | GPIO / ADC / PWM / I2C / SPI の C バインディング | 大: ESP-IDF API に全面書き直し |
-| `bindings_cyw43.c` | WiFi（CYW43 専用） | 大: ESP-IDF WiFi スタックに置き換え |
-| `CMakeLists.txt` + `pico_sdk_import.cmake` | Pico SDK ビルド定義 | 大: ESP-IDF のコンポーネント構成に変更 |
-
-### ボード・バリアント
-
-| バリアント | アーキテクチャ | ネイティブ USB CDC | 備考 |
-|---|---|---|---|
-| ESP32 (classic) | Xtensa LX6 | なし（USB-UART ブリッジ経由） | 最もポピュラー |
-| ESP32-S3 | Xtensa LX7 | あり | RAM 多め、高性能 |
-| ESP32-C3 / C6 | RISC-V | あり | 小型・省電力 |
-
-初期対応は **ESP32 classic + ESP32-S3** が現実的。USB CDC なし（classic）でも prremote のシリアルプロトコルは UART 上でそのまま動く。
-
-### deploy/undeploy の課題
-
-Pico では独自フラッシュプロトコルで `.mrb` を直接書き込んでいるが、ESP32 では NVS パーティションまたは SPIFFS/LittleFS パーティションへの書き込みになる。プロトコルレベルの変更は不要だが、ランタイム側のフラッシュ操作部分は設計し直しが必要。
-
-### 工数試算
-
-| 作業 | 目安 |
-|---|---|
-| ESP-IDF ビルド環境・CMake 構成 | 1〜2 日 |
-| `runtime.c` の stdio 初期化移植 | 0.5 日 |
-| フラッシュ（deploy/undeploy）設計・実装 | 2〜3 日 |
-| ハードウェアバインディング（GPIO/ADC/PWM/I2C/SPI/WiFi） | 3〜5 日 |
-| 実機テスト・デバッグ | 2〜3 日 |
-| **合計** | **約 2 週間** |
+- **WiFi / SNTP**: esp_wifi + picoruby-socket `ports/esp32/`（取り込みは rp2040 と同じ `-include picoruby_compat.h` 方式）。Ruby API は汎用 `WiFi` モジュール新設、picow は CYW43 互換を残して委譲。SNTP は esp_sntp で `_time_*` を別実装
+- **ESP32-S3 / C3**: sdkconfig の target 切り替え + ピンデフォルト調整でいけるはず（ネイティブ USB CDC あり）。需要を見て判断
 
 ### 対応ボード数の現実的な上限
 
@@ -80,32 +57,23 @@ Pico では独自フラッシュプロトコルで `.mrb` を直接書き込ん�
 
 現実的には **RP2350 + ESP32 まで** が維持コストとのバランスが取れる上限と思われる。それ以上はエコシステムが分散してテスト・リリース管理の負担が重くなる。
 
-## M5Stack Core2 対応
+## M5Stack 対応
 
-ESP32 (classic) ベースのため、**ESP32 対応が完了すれば自動的に射程に入る**。実機（Core2）が手元にあるため、動作確認・デバッグの優先ターゲットとして活用できる。
+**2026-06-11: M5GO（M5Stack Core 初代系）を検証実機として LCD まで実装済み。**
+手元の実機は Core2 ではなく M5GO だった（ESP32 classic / ILI9342C 320×240 /
+電源 IC は IP5306 でタッチなし・物理ボタン 3 個 / USB-UART CP2104）。
 
-### Core2 のハードウェア仕様
+### 実装済み
 
-| 項目 | 内容 |
-|---|---|
-| チップ | ESP32 (Xtensa LX6) |
-| SRAM | 520 KB + 16 MB PSRAM |
-| Flash | 4 MB + 16 MB（外部） |
-| LCD | ILI9342C、2インチ、320×240、SPI 接続 |
-| タッチ | FT6336U（静電容量式） |
-| 電源管理 | AXP192 |
-| IMU | MPU6886 |
+- `LCD` クラス（`runtime/src/lcd_wrap.rb` + `esp32/main/lcd_ili9342c.c`）:
+  `fill` / `fill_rect` / `pixel` / `text`（内蔵 8x8 フォント、scale 1〜4）/ `brightness=`。
+  esp_lcd_panel_io_spi ベース、フレームバッファなし（2KB ピンポン DMA バッファ）。
+  ピンは `LCD.new` で変更可、デフォルトは M5Stack Core 初代（CS=14, DC=27, RST=33, BL=32）
+- バックライトは GPIO32 を LEDC PWM（AXP192 不要なのが Core2 との違い）
+- サンプル: `test/samples/esp32/`（lcd_hello / lcd_demo / i2c_scan_m5go / buttons_m5go / gpio）
 
-### LCD 対応
+### M5Stack Core2 対応（将来）
 
-LCD（ILI9342C）は SPI 接続のため、SPI バインディングが整えば mruby/c 側からコントロールできる。やりたい機能の方向性：
-
-- `LCD` クラスを Ruby 層に追加
-- 文字・図形描画（フォント内蔵または外部フォント）
-- `deploy` したスクリプトから画面出力できる
-
-ILI934x 系は既存の OSS ドライバ（C 実装）が豊富なため、ESP-IDF コンポーネントとして取り込む方針が現実的。
-
-### 優先順位
-
-ESP32 基本対応 → SPI バインディング → LCD ドライバ組み込み → `LCD` Ruby クラス の順。
+同じ esp32 ランタイムで射程内。差分は LCD ピン（CS=5, DC=15, RST なし）と
+**AXP192 電源初期化**（LDO2/DCDC3/GPIO4 を叩かないと画面が点かない）の追加のみ。
+タッチ（FT6336U、I2C 0x38）は I2C バインディングで Ruby から読める。

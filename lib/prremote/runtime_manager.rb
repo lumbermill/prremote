@@ -4,14 +4,18 @@ require 'fileutils'
 
 module Prremote
   module RuntimeManager
-    BOARDS = %w[pico picow].freeze
+    BOARDS = %w[pico picow esp32].freeze
 
-    def self.uf2_filename(version, board)
-      "prremote-#{board}-runtime-#{version}.uf2"
+    # Pico boards ship as UF2 (copied to the BOOTSEL drive); ESP32 ships as a
+    # single merged .bin (bootloader + partition table + app) flashed at 0x0
+    # with esptool.
+    def self.artifact_filename(version, board)
+      ext = board == 'esp32' ? 'bin' : 'uf2'
+      "prremote-#{board}-runtime-#{version}.#{ext}"
     end
 
     def self.release_url(version, board)
-      "https://github.com/lumbermill/prremote/releases/download/runtime-#{version}/#{uf2_filename(version, board)}"
+      "https://github.com/lumbermill/prremote/releases/download/runtime-#{version}/#{artifact_filename(version, board)}"
     end
 
     def self.cache_dir
@@ -19,7 +23,7 @@ module Prremote
     end
 
     def self.cached_path(version, board)
-      File.join(cache_dir, uf2_filename(version, board))
+      File.join(cache_dir, artifact_filename(version, board))
     end
 
     def self.fetch(version, board)
@@ -27,7 +31,7 @@ module Prremote
       return path if File.exist?(path)
 
       FileUtils.mkdir_p(cache_dir)
-      $stderr.print "Downloading #{uf2_filename(version, board)}..."
+      $stderr.print "Downloading #{artifact_filename(version, board)}..."
       $stderr.flush
       download(release_url(version, board), path)
       warn ' done.'

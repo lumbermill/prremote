@@ -3,6 +3,7 @@ require 'rubyserial'
 require_relative 'version'
 require_relative 'detector'
 require_relative 'mrbc'
+require_relative 'esptool'
 require_relative 'runtime_manager'
 require_relative 'commands/install'
 require_relative 'commands/deploy'
@@ -23,9 +24,9 @@ module Prremote
 
     remove_command :tree
 
-    desc 'install', 'Flash prremote runtime firmware to Pico W or Pico'
+    desc 'install', 'Flash prremote runtime firmware to Pico W, Pico, or ESP32'
     option :version, type: :string, desc: "Firmware version to install (default: #{VERSION})"
-    option :board, type: :string, desc: 'Board type: pico or picow (default: picow)'
+    option :board, type: :string, desc: 'Board type: picow, pico, or esp32 (default: picow)'
     def install
       version = options[:version] || VERSION
       board = options[:board] || 'picow'
@@ -33,7 +34,7 @@ module Prremote
         raise Thor::Error, "Unknown board '#{board}'. Valid values: #{RuntimeManager::BOARDS.join(', ')}"
       end
 
-      Commands::Install.new(version: version, board: board).call
+      Commands::Install.new(version: version, board: board, port: options[:port]).call
     rescue StandardError => e
       raise Thor::Error, e.message
     end
