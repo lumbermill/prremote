@@ -7,8 +7,10 @@
 #include "hardware/spi.h"
 #include <mrubyc.h>
 
-#ifdef HAS_CYW43
+#ifdef HAS_WIFI
 void register_cyw43_methods(void);
+#endif
+#ifdef HAS_SOCKET
 void mrbc_socket_init(mrbc_vm *vm);
 #endif
 
@@ -329,8 +331,10 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_spi_write",        c_spi_write);
   mrbc_define_method(0, mrbc_class_object, "_spi_read",         c_spi_read);
   mrbc_define_method(0, mrbc_class_object, "_spi_transfer",     c_spi_transfer);
-#ifdef HAS_CYW43
+#ifdef HAS_WIFI
   register_cyw43_methods();
+#endif
+#ifdef HAS_SOCKET
   mrbc_socket_init(0);
 #endif
 }
