@@ -35,13 +35,14 @@ idf_component_register(
     ${PRR_SRC}/runtime.c
     platform_esp32.c
     bindings_esp32.c
+    lcd_ili9342c.c
     ${MRUBYC_SOURCES}
   INCLUDE_DIRS
     .
     ${PRR_SRC}
     ${MRUBYC_DIR}/src
     ${MRUBYC_DIR}/hal/esp32
-  REQUIRES driver vfs esp_timer esp_partition spi_flash esp_adc
+  REQUIRES driver vfs esp_timer esp_partition spi_flash esp_adc esp_lcd
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
@@ -50,6 +51,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
   MAX_REGS_SIZE=256
   MAX_SYMBOLS_COUNT=500
   MRBC_SCHEDULER_EXIT=1
+  HAS_LCD=1
   RUNTIME_VERSION="${RUNTIME_VERSION}"
 )
 
@@ -79,6 +81,15 @@ add_custom_command(
 )
 add_custom_target(hw_wrap_h DEPENDS ${PRR_SRC}/hw_wrap.h)
 
+add_custom_command(
+  OUTPUT ${PRR_SRC}/lcd_wrap.h
+  COMMAND ${MRBC_EXECUTABLE} -B lcd_wrap -o ${PRR_SRC}/lcd_wrap.h
+          ${PRR_SRC}/lcd_wrap.rb
+  DEPENDS ${PRR_SRC}/lcd_wrap.rb
+  COMMENT "Compiling lcd_wrap.rb → lcd_wrap.h"
+)
+add_custom_target(lcd_wrap_h DEPENDS ${PRR_SRC}/lcd_wrap.h)
+
 # mruby/c autogen headers + mrblib bytecode (host-side make, idempotent).
 add_custom_command(
   OUTPUT ${MRUBYC_DIR}/src/_autogen_builtin_symbol.h
@@ -95,4 +106,4 @@ add_custom_command(
 )
 add_custom_target(mrubyc_mrblib DEPENDS ${MRUBYC_DIR}/src/mrblib.c)
 
-add_dependencies(${COMPONENT_LIB} hw_wrap_h mrubyc_autogen mrubyc_mrblib)
+add_dependencies(${COMPONENT_LIB} hw_wrap_h lcd_wrap_h mrubyc_autogen mrubyc_mrblib)

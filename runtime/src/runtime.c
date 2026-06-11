@@ -22,6 +22,9 @@
 #include "socket_wrap.h"
 #include "time_wrap.h"
 #endif
+#ifdef HAS_LCD
+#include "lcd_wrap.h"
+#endif
 
 #define MRB_BUFFER_SIZE (32 * 1024)
 #define HEAP_SIZE       (96 * 1024)
@@ -88,6 +91,13 @@ static void exec_mrb(void)
   }
   if (mrbc_create_task(time_wrap, NULL) == NULL) {
     printf("ERROR time_wrap\n");
+    prr_flush();
+    return;
+  }
+#endif
+#ifdef HAS_LCD
+  if (mrbc_create_task(lcd_wrap, NULL) == NULL) {
+    printf("ERROR lcd_wrap\n");
     prr_flush();
     return;
   }
