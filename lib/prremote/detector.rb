@@ -61,9 +61,8 @@ module Prremote
       # On macOS/Linux, check ioreg or sysfs for a known vendor ID
       case RbConfig::CONFIG['host_os']
       when /darwin/
-        ioreg_output = ioreg_usb
         KNOWN_VENDORS.each do |vid, info|
-          return info[:label] if ioreg_output.include?(vid) && port.match?(info[:macos])
+          return info[:label] if usb_vendor_ids.include?(vid) && port.match?(info[:macos])
         end
         nil
       when /linux/
@@ -74,6 +73,13 @@ module Prremote
         vid = File.read(vid_path).strip.downcase
         KNOWN_VENDORS.dig(vid, :label)
       end
+    end
+
+    # Vendor IDs of all connected USB devices as 4-digit hex strings.
+    # ioreg prints idVendor in decimal (e.g. 4292 for 0x10c4).
+    def usb_vendor_ids
+      @usb_vendor_ids ||= ioreg_usb.scan(/"idVendor" = (\d+)/)
+                                   .map { |(dec)| format('%04x', dec.to_i) }
     end
 
     def ioreg_usb

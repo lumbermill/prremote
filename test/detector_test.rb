@@ -33,7 +33,8 @@ class DetectorTest < Minitest::Test
   def test_port_label_maps_esp32_bridge_vid_on_macos
     skip 'macOS-only check' unless RbConfig::CONFIG['host_os'] =~ /darwin/
 
-    @detector.stub(:ioreg_usb, '"idVendor" = 0x10c4') do
+    # ioreg prints idVendor in decimal: 4292 == 0x10c4 (CP210x)
+    @detector.stub(:ioreg_usb, '"idVendor" = 4292') do
       assert_equal 'ESP32 (CP210x)', @detector.send(:port_label, '/dev/cu.usbserial-0001')
       assert_nil @detector.send(:port_label, '/dev/cu.usbmodem1101')
     end
