@@ -60,3 +60,6 @@ Gemspec/RequiredRubyVersion:
 
 Naming/MethodParameterName:
   MinNameLength: 1
+
+Style/NumericLiterals:
+  Enabled: false

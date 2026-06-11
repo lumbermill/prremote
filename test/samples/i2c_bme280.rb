@@ -14,11 +14,11 @@ unless calib
   return
 end
 
-dig_T1 = (calib[1] << 8) | calib[0]           # unsigned 16-bit
-dig_T2 = (calib[3] << 8) | calib[2]           # signed 16-bit
-dig_T2 -= 65536 if dig_T2 >= 32768
-dig_T3 = (calib[5] << 8) | calib[4]           # signed 16-bit
-dig_T3 -= 65536 if dig_T3 >= 32768
+dig_t1 = (calib[1] << 8) | calib[0]           # unsigned 16-bit
+dig_t2 = (calib[3] << 8) | calib[2]           # signed 16-bit
+dig_t2 -= 65_536 if dig_t2 >= 32_768
+dig_t3 = (calib[5] << 8) | calib[4]           # signed 16-bit
+dig_t3 -= 65_536 if dig_t3 >= 32_768
 
 # ctrl_meas (0xF4): temp oversampling x1 (001), pressure skip (000), normal mode (11)
 i2c.write(I2C_ADDR, 0xF4, 0x23)
@@ -27,12 +27,12 @@ sleep 0.1
 loop do
   raw = i2c.read(I2C_ADDR, 3, 0xFA)&.bytes
   if raw
-    adc_T = (raw[0] << 12) | (raw[1] << 4) | (raw[2] >> 4)
+    adc_t = (raw[0] << 12) | (raw[1] << 4) | (raw[2] >> 4)
 
     # Temperature compensation formula from BME280 datasheet section 4.2.3
-    var1 = ((adc_T >> 3) - (dig_T1 << 1)) * dig_T2 >> 11
-    var2 = (((adc_T >> 4) - dig_T1) * ((adc_T >> 4) - dig_T1) >> 12) * dig_T3 >> 14
-    temp = ((var1 + var2) * 5 + 128) >> 8  # 0.01 degC units
+    var1 = (((adc_t >> 3) - (dig_t1 << 1)) * dig_t2) >> 11
+    var2 = (((((adc_t >> 4) - dig_t1) * ((adc_t >> 4) - dig_t1)) >> 12) * dig_t3) >> 14
+    temp = (((var1 + var2) * 5) + 128) >> 8 # 0.01 degC units
 
     puts "#{temp / 100.0} C"
   else

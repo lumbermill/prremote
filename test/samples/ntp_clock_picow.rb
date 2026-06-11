@@ -7,7 +7,7 @@
 SSID     = "360-raspi"
 PASSWORD = "raspberry"
 
-SYNC_INTERVAL = 3600  # seconds between re-syncs
+SYNC_INTERVAL = 3600 # seconds between re-syncs
 NTP_SERVER = "ntp.nict.jp"
 
 CYW43.init("JP")
@@ -24,16 +24,16 @@ rescue CYW43::WiFi::ConnectTimeout => e
 end
 
 t = Time.new(offset: 9)
-puts "Syncing to "+NTP_SERVER+"..."
-t.sync(NTP_SERVER, interval: 5, timeout: 60)   # retry every 5s until success
+puts "Syncing to #{NTP_SERVER}..."
+t.sync(NTP_SERVER, interval: 5, timeout: 60) # retry every 5s until success
 puts "Synced: #{t}"
 
 last_sync = t.epoch
 loop do
-  puts t.to_s
+  puts t
   t.sleep(1)
   if t - last_sync >= SYNC_INTERVAL
-    last_sync = t.epoch        # reset timer regardless of outcome to avoid retry storm
+    last_sync = t.epoch # reset timer regardless of outcome to avoid retry storm
     puts "Re-synced." if t.sync(NTP_SERVER, interval: 5, timeout: 60)
   end
 end

@@ -9,9 +9,9 @@ btn_c = GPIO.new(37, GPIO::IN)
 puts "Press buttons A / B / C (reading for 15 s)..."
 150.times do
   pressed = ""
-  pressed += "A" if btn_a.read.zero?
-  pressed += "B" if btn_b.read.zero?
-  pressed += "C" if btn_c.read.zero?
+  pressed += "A" if btn_a.read == 0
+  pressed += "B" if btn_b.read == 0
+  pressed += "C" if btn_c.read == 0
   puts pressed unless pressed.empty?
   sleep 0.1
 end
