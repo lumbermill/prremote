@@ -167,6 +167,7 @@ endif()
 # Output: build/prremote-<board>-runtime-<version>.uf2
 add_executable(runtime
   ${CMAKE_SOURCE_DIR}/src/runtime.c
+  ${CMAKE_SOURCE_DIR}/src/platform_pico.c
   ${CMAKE_SOURCE_DIR}/src/bindings.c
   ${BOARD_SOURCES}
   ${MRUBYC_SOURCES}
