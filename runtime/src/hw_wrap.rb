@@ -180,3 +180,9 @@ class I2C
     found
   end
 end
+
+class Integer
+  def zero?
+    self == 0
+  end
+end
