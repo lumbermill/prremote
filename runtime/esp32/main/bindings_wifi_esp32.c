@@ -26,6 +26,7 @@
 #include "nvs_flash.h"
 #include "lwip/ip4_addr.h"
 #include "esp_sntp.h"
+#include <time.h>
 #include <mrubyc.h>
 
 /* Link status codes — mirror cyw43_wrap.rb LINK_* constants. */
