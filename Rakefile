@@ -32,6 +32,14 @@ task :setup do
     fi
     echo '→ rubocop'
     bundle exec rubocop
+    echo '→ wifi credential check'
+    bad=$(git grep -hE '^(SSID|PASSWORD) *=' HEAD -- test/samples | grep -vE 'My(SSID|Password)' || true)
+    if [ -n "$bad" ]; then
+      echo 'Non-placeholder WiFi credentials committed in test/samples:'
+      echo "$bad"
+      echo 'Replace with SSID = "MySSID" / PASSWORD = "MyPassword" before pushing.'
+      exit 1
+    fi
   SH
   File.chmod(0o755, hook)
   puts 'Installed .git/hooks/pre-push'

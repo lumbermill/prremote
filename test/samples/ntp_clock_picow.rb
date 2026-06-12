@@ -4,8 +4,8 @@
 #
 # Set SSID and PASSWORD before deploying.
 
-SSID     = "360-raspi"
-PASSWORD = "raspberry"
+SSID     = "MySSID"
+PASSWORD = "MyPassword"
 
 SYNC_INTERVAL = 3600 # seconds between re-syncs
 NTP_SERVER = "ntp.nict.jp"
