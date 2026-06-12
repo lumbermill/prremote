@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-06-12
 
 ### Changed
 
+- Samples reorganized by platform: `test/samples/pico/` (Pico / Pico W) and `test/samples/esp32/`.
 - Runtime: platform abstraction layer (`prr_platform.h`) — the serial protocol core (`runtime.c`) is now platform-neutral; all pico-sdk specifics (USB CDC stdio, XIP flash storage, watchdog reset) moved to `platform_pico.c`. No behavior change; groundwork for ESP32 support.
 - Runtime: `hw_wrap.rb` is now shared between the Pico and ESP32 builds. `I2C.new` / `SPI.new` accept `unit: 0` / `1` or `:I2C0` / `:SPI0` style symbols (`:RP2040_I2C0` etc. still work); the ADC pin→channel mapping moved to the C layer (`_adc_read_pin`).
 
@@ -33,11 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime (Pico W): `Time` class — SNTP-synced wall clock. `Time.new(offset: 9)` creates a JST clock; `.sync(host, interval: N, timeout: N)` fetches time via SNTP (UDP port 123, RFC 4330) with optional retry (`interval: nil` = single attempt, `timeout: nil` = no limit, `timeout: N` uses wall-clock via `uptime_ms`); `.sleep(n)` sleeps and advances the clock; `.epoch` returns seconds since Unix epoch (Integer); `t - epoch_int` / `t - other_time` returns elapsed seconds; `.year` / `.month` / `.day` / `.hour` / `.min` / `.sec` accessors; `.to_s` formats as `YYYY-MM-DDTHH:MM:SS±offset`.
 - Runtime: `uptime_ms` — milliseconds since boot (`Kernel` method, wraps at ~49 days). Uses `time_us_64()` from pico-sdk.
 - Runtime (Pico W): `ntp.c` — SNTP client over lwIP UDP raw API (`ntp_get_unix_time`). Exposed as `_ntp_gettime(host, timeout_ms)` Kernel method.
-- Sample: `test/samples/ntp_clock_picow.rb` — displays JST time with hourly NTP re-sync (rewritten to use `Time` class).
+- Sample: `test/samples/pico/ntp_clock_picow.rb` — displays JST time with hourly NTP re-sync (rewritten to use `Time` class).
 - Runtime: `Temperature` class for reading the RP2040 on-chip temperature sensor (ADC channel 4). `Temperature.new.celsius` / `.fahrenheit` — no external wiring needed.
-- Sample: `test/samples/temperature.rb` — on-chip temperature, 10 readings with 1-second interval.
-- Sample: `test/samples/i2c_adt7410.rb` (renamed from `i2c.rb`) — ADT7410 I2C temperature sensor; fixed byte extraction to use `String#bytes` for correct integer values.
-- Sample: `test/samples/i2c_scan.rb` — scan all I2C addresses and print responding ones.
+- Sample: `test/samples/pico/temperature.rb` — on-chip temperature, 10 readings with 1-second interval.
+- Sample: `test/samples/pico/i2c_adt7410.rb` (renamed from `i2c.rb`) — ADT7410 I2C temperature sensor; fixed byte extraction to use `String#bytes` for correct integer values.
+- Sample: `test/samples/pico/i2c_scan.rb` — scan all I2C addresses and print responding ones.
 
 ### Fixed
 
