@@ -11,7 +11,7 @@ CYW43.init
 puts "Connecting to #{SSID}..."
 
 begin
-  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_AES_PSK, 15)
+  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_MIXED_PSK, 15)
   puts "Connected!"
   puts "IP:      #{CYW43::WiFi.ipv4_address}"
   puts "Netmask: #{CYW43::WiFi.ipv4_netmask}"

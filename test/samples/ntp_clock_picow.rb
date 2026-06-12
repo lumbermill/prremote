@@ -26,11 +26,12 @@ end
 t = Time.new(offset: 9)
 puts "Syncing to #{NTP_SERVER}..."
 t.sync(NTP_SERVER, interval: 5, timeout: 60) # retry every 5s until success
-puts "Synced: #{t}"
+# mruby/c does not call a Ruby-defined #to_s in interpolation; call it explicitly.
+puts "Synced: #{t.to_s}"
 
 last_sync = t.epoch
 loop do
-  puts t
+  puts t.to_s
   t.sleep(1)
   if t - last_sync >= SYNC_INTERVAL
     last_sync = t.epoch # reset timer regardless of outcome to avoid retry storm

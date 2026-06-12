@@ -63,3 +63,9 @@ Naming/MethodParameterName:
 
 Style/NumericLiterals:
   Enabled: false
+
+# mruby/c's OP_STRCAT does not call a Ruby-defined #to_s (vm.c "TODO: Not
+# support?"), so device samples must call .to_s explicitly in interpolation —
+# it is not redundant there.
+Lint/RedundantStringCoercion:
+  Enabled: false

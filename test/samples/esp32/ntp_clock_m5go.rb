@@ -18,12 +18,12 @@ lcd.text("Connecting...", 4, 4, LCD::WHITE, scale: 2)
 
 CYW43.init
 begin
-  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_AES_PSK, 20)
-rescue CYW43::WiFi::ConnectError => e
+  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_MIXED_PSK, 20)
+rescue CYW43::WiFi::ConnectError
   lcd.fill(LCD::RED)
   lcd.text("Auth failed", 4, 4, LCD::WHITE, scale: 2)
   return
-rescue CYW43::WiFi::ConnectTimeout => e
+rescue CYW43::WiFi::ConnectTimeout
   lcd.fill(LCD::RED)
   lcd.text("Timed out", 4, 4, LCD::WHITE, scale: 2)
   return
@@ -38,9 +38,9 @@ t.sync(NTP_SERVER, interval: 5, timeout: 60)
 last_sync = t.epoch
 loop do
   lcd.fill(LCD::BLACK)
-  lcd.text(t.to_s[0, 10], 4,  60, LCD::CYAN,   scale: 3)  # YYYY-MM-DD
-  lcd.text(t.to_s[11, 8], 20, 110, LCD::WHITE,  scale: 4)  # HH:MM:SS
-  lcd.text("JST (UTC+9)",  4, 200, LCD::YELLOW, scale: 2)
+  lcd.text(t.to_s[0, 10], 4, 60, LCD::CYAN, scale: 3)     # YYYY-MM-DD
+  lcd.text(t.to_s[11, 8], 20, 110, LCD::WHITE, scale: 4)  # HH:MM:SS
+  lcd.text("JST (UTC+9)", 4, 200, LCD::YELLOW, scale: 2)
   t.sleep(1)
   if t - last_sync >= SYNC_INTERVAL
     last_sync = t.epoch

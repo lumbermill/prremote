@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Runtime: `Integer#zero?` — returns `true` if the receiver is 0 (mruby/c does not include this by default).
 
-- Runtime (ESP32): WiFi support — `CYW43::WiFi.connect/disconnect`, `ipv4_address/netmask/gateway`, `CYW43::WiFi::ConnectError/ConnectTimeout` — same API as Pico W. Implemented via ESP-IDF `esp_wifi` + FreeRTOS EventGroup; `cyw43_wrap.rb` is now shared between both platforms. `CYW43.init` initialises NVS, netif, and the WiFi driver (idempotent).
+- Runtime (ESP32): WiFi support — `CYW43::WiFi.connect/disconnect`, `ipv4_address/netmask/gateway`, `CYW43::WiFi::ConnectError/ConnectTimeout` — same API as Pico W. Implemented via ESP-IDF `esp_wifi` + FreeRTOS EventGroup; `cyw43_wrap.rb` is now shared between both platforms. `CYW43.init` initialises NVS, netif, and the WiFi driver (idempotent). `connect` retries transient disconnects until the timeout (matching Pico W's `cyw43_arch_wifi_connect_timeout_ms`) and maps `CYW43::Auth::*` to the ESP-IDF authmode threshold — use `WPA2_MIXED_PSK` for WPA/WPA2 mixed-mode APs, which a hard `WPA2` threshold rejects (disconnect reason 211).
 - Runtime (ESP32): NTP / `Time` class — `_ntp_gettime` implemented with `esp_sntp` (ESP-IDF 5.x); `time_wrap.rb` is now shared with the Pico W build. `Time.new(offset: 9).sync(host)` works identically on both platforms.
 - Samples: `test/samples/esp32/wifi.rb` — connect and print IP info. `test/samples/esp32/ntp_clock_m5go.rb` — NTP-synced JST clock on the M5GO LCD with hourly re-sync.
 - Build: `HAS_CYW43` compile flag renamed to `HAS_WIFI`; socket layer now guarded by separate `HAS_SOCKET` flag. Pico W sets both; ESP32 sets `HAS_WIFI` only (TCP socket support is a future task).
@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Samples / `Time`: embed `Time` in strings with an explicit `.to_s` — mruby/c's `OP_STRCAT` does not call a Ruby-defined `#to_s` (upstream `vm.c` TODO), so `"#{t}"` silently interpolated as an empty string. Samples updated; `Lint/RedundantStringCoercion` disabled in `.rubocop.yml` because the explicit call is required in device code.
 - Runtime: wrapper tasks (`hw_wrap` etc.) now run at a higher mruby/c scheduler priority than the user script. Previously all tasks shared the default priority and round-robined on timeslice expiry, so the user script could start while a wrapper class was only half defined and fail with `NoMethodError` (e.g. `GPIO#initialize` present but `GPIO#write` missing). The window widens with each additional wrapper task, which is how the ESP32 WiFi work exposed it.
 - Runtime: `mrb_buffer` (32 KB) and `memory_pool` (96 KB) are heap-allocated at startup instead of static arrays. As `.bss` data they shared the ESP32's ~180 KB static DRAM segment with the WiFi stack, exhausting it — the firmware boot-looped (`assert failed: esp_startup_start_app`) before printing `READY`. No functional change on Pico.
 

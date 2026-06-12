@@ -5,7 +5,10 @@
 # Example:
 #   t = Time.new(offset: 9)    # JST = UTC+9
 #   t.sync("ntp.nict.jp")      # fetch via SNTP (UDP port 123)
-#   puts t                      # "2026-06-11T15:30:00+9"
+#   puts t.to_s                 # "2026-06-11T15:30:00+9"
+#                               # NOTE: explicit .to_s — mruby/c's OP_STRCAT
+#                               # does not call a Ruby-defined #to_s, so
+#                               # "#{t}" interpolates as an empty string.
 #   t.sleep(60)                 # sleep 60 s and advance internal clock
 class Time
   DAYS_IN_MONTH = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]

@@ -33,33 +33,51 @@
 #define LINK_DOWN     0
 #define LINK_UP       3
 #define LINK_FAIL    -1
+#define LINK_NONET   -2
 #define LINK_BADAUTH -3
 
 static bool              s_wifi_initialized = false;
 static EventGroupHandle_t s_wifi_eg;
 #define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
-#define WIFI_BADAUTH_BIT   BIT2
+#define WIFI_BADAUTH_BIT   BIT1
 
-static volatile int s_link_status = LINK_DOWN;
+static volatile int  s_link_status = LINK_DOWN;
+static volatile bool s_connecting  = false;
+static volatile int  s_disc_reason = 0;
+static volatile int  s_auth_fails  = 0;
 
 /* ------------------------------------------------------------------ */
 /* Event handlers                                                      */
 /* ------------------------------------------------------------------ */
+
+static bool reason_is_auth(int reason)
+{
+  return reason == WIFI_REASON_AUTH_FAIL ||
+         reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT ||
+         reason == WIFI_REASON_HANDSHAKE_TIMEOUT ||
+         reason == WIFI_REASON_AUTH_EXPIRE;
+}
 
 static void on_wifi_event(void *arg, esp_event_base_t base,
                           int32_t id, void *data)
 {
   if (id == WIFI_EVENT_STA_DISCONNECTED) {
     wifi_event_sta_disconnected_t *d = data;
-    if (d->reason == WIFI_REASON_AUTH_FAIL ||
-        d->reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT ||
-        d->reason == WIFI_REASON_AUTH_EXPIRE) {
+    s_disc_reason = d->reason;
+    if (!s_connecting) {
+      s_link_status = LINK_DOWN;
+      return;
+    }
+    /* A first connect attempt often gets one transient disconnect (e.g.
+     * NO_AP_FOUND while the scan warms up), so retry until the caller's
+     * timeout expires — same behavior as the Pico W's
+     * cyw43_arch_wifi_connect_timeout_ms. Repeated auth failures won't
+     * resolve by retrying; give up early on the third one. */
+    if (reason_is_auth(d->reason) && ++s_auth_fails >= 3) {
       s_link_status = LINK_BADAUTH;
       xEventGroupSetBits(s_wifi_eg, WIFI_BADAUTH_BIT);
     } else {
-      s_link_status = LINK_FAIL;
-      xEventGroupSetBits(s_wifi_eg, WIFI_FAIL_BIT);
+      esp_wifi_connect();
     }
   }
 }
@@ -126,34 +144,59 @@ static void c_cyw43_disable_sta_mode(mrbc_vm *vm, mrbc_value v[], int argc)
 /* _wifi_connect(ssid, pass, auth, timeout_ms) → 0 on success         */
 /* ------------------------------------------------------------------ */
 
+/* Map CYW43::Auth constants (cyw43_wrap.rb) to the weakest acceptable
+ * ESP-IDF authmode. The threshold rejects APs below it during scan
+ * (disconnect reason 211, NO_AP_FOUND_W_COMPATIBLE_SECURITY). */
+static wifi_auth_mode_t auth_threshold(uint32_t cyw43_auth)
+{
+  switch (cyw43_auth) {
+    case 0:          return WIFI_AUTH_OPEN;       /* Auth::OPEN           */
+    case 0x00200002: return WIFI_AUTH_WPA_PSK;    /* Auth::WPA_TKIP_PSK   */
+    case 0x00400006: return WIFI_AUTH_WPA_PSK;    /* Auth::WPA2_MIXED_PSK */
+    default:         return WIFI_AUTH_WPA2_PSK;   /* Auth::WPA2_AES_PSK   */
+  }
+}
+
 static void c_wifi_connect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   const char *ssid    = (const char *)RSTRING_PTR(v[1]);
   const char *pass    = (const char *)RSTRING_PTR(v[2]);
-  int         timeout = GET_INT_ARG(4);  /* auth (v[3]) is not used on ESP32 */
+  uint32_t    auth    = (uint32_t)GET_INT_ARG(3);
+  int         timeout = GET_INT_ARG(4);
 
   /* Already connected — reuse the session (same behavior as Pico W). */
   if (s_link_status == LINK_UP) { SET_INT_RETURN(0); return; }
 
   s_link_status = LINK_DOWN;
-  xEventGroupClearBits(s_wifi_eg, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT | WIFI_BADAUTH_BIT);
+  s_disc_reason = 0;
+  s_auth_fails  = 0;
+  xEventGroupClearBits(s_wifi_eg, WIFI_CONNECTED_BIT | WIFI_BADAUTH_BIT);
 
   wifi_config_t wc = {0};
   strlcpy((char *)wc.sta.ssid,     ssid, sizeof(wc.sta.ssid));
   strlcpy((char *)wc.sta.password, pass, sizeof(wc.sta.password));
-  wc.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+  wc.sta.threshold.authmode = auth_threshold(auth);
 
   esp_wifi_set_config(WIFI_IF_STA, &wc);
+  s_connecting = true;
   esp_wifi_connect();
 
+  /* The disconnect handler keeps retrying, so only success or a confirmed
+   * auth failure ends the wait before the timeout. */
   TickType_t ticks = (timeout <= 0) ? portMAX_DELAY
                                     : pdMS_TO_TICKS((uint32_t)timeout);
   EventBits_t bits = xEventGroupWaitBits(
-      s_wifi_eg,
-      WIFI_CONNECTED_BIT | WIFI_FAIL_BIT | WIFI_BADAUTH_BIT,
+      s_wifi_eg, WIFI_CONNECTED_BIT | WIFI_BADAUTH_BIT,
       pdFALSE, pdFALSE, ticks);
+  s_connecting = false;
 
   if (bits & WIFI_CONNECTED_BIT) { SET_INT_RETURN(0); return; }
+  if (!(bits & WIFI_BADAUTH_BIT)) {
+    /* Timed out: report why the last attempt failed. */
+    s_link_status = (s_disc_reason == WIFI_REASON_NO_AP_FOUND) ? LINK_NONET
+                                                               : LINK_FAIL;
+    esp_wifi_disconnect();  /* stop the retry loop */
+  }
   SET_INT_RETURN(-1);
 }
 
