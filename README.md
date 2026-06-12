@@ -17,7 +17,7 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 ## Requirements
 
 - Ruby 3.4 or later
-- A supported board:
+- Supported boards:
   - Raspberry Pi Pico W / Pico
   - ESP32 (classic) — e.g. M5GO / M5Stack Core gen1, generic dev boards
 - `mrbc` (mruby 4.x) for `run`, `deploy`, and `eval`
