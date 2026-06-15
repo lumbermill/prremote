@@ -46,6 +46,9 @@ Metrics/BlockLength:
 Layout/LineLength:
   Max: 130
 
+Style/ParallelAssignment:
+  Enabled: false
+
 Style/NumericPredicate:
   Enabled: false
 

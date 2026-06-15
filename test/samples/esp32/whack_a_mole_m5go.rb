@@ -25,7 +25,34 @@ def beep(spk, freq, duration)
   spk.frequency = freq
   spk.duty_u16  = VOL
   sleep duration
-  spk.duty_u16  = 0
+  spk.duty_u16 = 0
+end
+
+def draw_game_layout(lcd)
+  lcd.fill(LCD::BLACK)
+  lcd.fill_rect(105, LANE_Y, 5, LANE_H + 20, DIVIDER)
+  lcd.fill_rect(205, LANE_Y, 5, LANE_H + 20, DIVIDER)
+  lcd.text(44,  LANE_Y + LANE_H + 8, "A", color: LCD::CYAN, scale: 2)
+  lcd.text(148, LANE_Y + LANE_H + 8, "B", color: LCD::CYAN, scale: 2)
+  lcd.text(245, LANE_Y + LANE_H + 8, "C", color: LCD::CYAN, scale: 2)
+end
+
+def show_game_over(lcd, btn_a, btn_b, btn_c, score)
+  lcd.fill(LCD::BLACK)
+  lcd.text(60, 70,  "GAME OVER", color: LCD::WHITE, scale: 3)
+  lcd.text(60, 130, "#{score}/#{ROUNDS}", color: LCD::YELLOW, scale: 4)
+  lcd.text(20, 205, "Press any button to play again", color: LCD::CYAN, scale: 1)
+  sleep 3
+  loop do
+    break if btn_a.read == 1 && btn_b.read == 1 && btn_c.read == 1
+
+    sleep 0.02
+  end
+  loop do
+    break if btn_a.read == 0 || btn_b.read == 0 || btn_c.read == 0
+
+    sleep 0.02
+  end
 end
 
 def wait_for_press(btn_a, btn_b, btn_c)
@@ -52,7 +79,7 @@ end
 
 # --- Title / instruction screen (shown once at startup) ---
 lcd.fill(LCD::BLACK)
-lcd.text(50, 70,  "WHACK-A-MOLE",                  color: LCD::WHITE,  scale: 2)
+lcd.text(50, 70,  "WHACK-A-MOLE", color: LCD::WHITE, scale: 2)
 lcd.text(20, 110, "A = Left   B = Mid   C = Right", color: LCD::CYAN,   scale: 1)
 lcd.text(80, 145, "Starting in 3 s",                color: LCD::YELLOW, scale: 1)
 sleep 3
@@ -60,14 +87,7 @@ sleep 3
 loop do
   score = 0
   rng   = 1
-
-  # --- Game layout ---
-  lcd.fill(LCD::BLACK)
-  lcd.fill_rect(105, LANE_Y, 5, LANE_H + 20, DIVIDER)
-  lcd.fill_rect(205, LANE_Y, 5, LANE_H + 20, DIVIDER)
-  lcd.text(44,  LANE_Y + LANE_H + 8, "A", color: LCD::CYAN, scale: 2)
-  lcd.text(148, LANE_Y + LANE_H + 8, "B", color: LCD::CYAN, scale: 2)
-  lcd.text(245, LANE_Y + LANE_H + 8, "C", color: LCD::CYAN, scale: 2)
+  draw_game_layout(lcd)
 
   ROUNDS.times do |round|
     rng    = rng * 75 % 65537
@@ -92,14 +112,5 @@ loop do
     sleep 0.1
   end
 
-  # --- GAME OVER screen ---
-  lcd.fill(LCD::BLACK)
-  lcd.text(60, 70,  "GAME OVER",                      color: LCD::WHITE,  scale: 3)
-  lcd.text(60, 130, "#{score}/#{ROUNDS}",              color: LCD::YELLOW, scale: 4)
-  lcd.text(20, 205, "Press any button to play again", color: LCD::CYAN,   scale: 1)
-
-  # Hold GAME OVER for 2 s before accepting input (prevents accidental restart)
-  sleep 3
-  loop { break if btn_a.read == 1 && btn_b.read == 1 && btn_c.read == 1; sleep 0.02 }
-  loop { break if btn_a.read == 0 || btn_b.read == 0 || btn_c.read == 0; sleep 0.02 }
+  show_game_over(lcd, btn_a, btn_b, btn_c, score)
 end
