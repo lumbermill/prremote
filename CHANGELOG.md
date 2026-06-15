@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Samples (ESP32 / M5GO): five new samples for the M5Stack ecosystem.
+  - `angle_meter_m5go.rb` — ANGLE SENSOR unit (PORT B / GPIO36) displayed as a real-time bar meter + percentage on the M5GO LCD.
+  - `angle_theremin_m5go.rb` — ANGLE SENSOR knob controls the built-in speaker (GPIO25) pitch via PWM (200–2000 Hz); BtnA mutes, BtnC exits.
+  - `motion_counter_m5go.rb` — MOTION SENSOR unit (PIR, PORT B / GPIO36) counts rising-edge events; large count on LCD, BtnA resets.
+  - `whack_a_mole_m5go.rb` — Whack-a-Mole game: moles appear in left/center/right columns, press A/B/C to whack; 20 rounds, score on LCD.
+  - `imu_level_m5go.rb` — Digital spirit level using the built-in MPU6886 IMU (I2C 0x68); a bubble moves with tilt, turns green when level.
+
 ### Changed
 
 - Sample (`ntp_clock_m5go.rb`): center date and time horizontally on the 320×240 LCD; add a Ruby gem logo (flat-top faceted diamond silhouette, red with white glint) in the bottom-right corner; move "JST (UTC+9)" label up and add "by prremote" footer.

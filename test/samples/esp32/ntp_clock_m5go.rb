@@ -43,20 +43,20 @@ lcd.text(10, 207, "by prremote", color: LCD::WHITE,  scale: 2)
 # Flat-top faceted diamond: narrow crown widens to peak, then tapers to a point.
 gx, gy = 256, 182
 r = LCD::RED
-lcd.fill_rect(gx + 12, gy,      36, 5,  r)  # flat top crown
-lcd.fill_rect(gx +  7, gy +  5, 46, 5,  r)  # upper shoulder
+lcd.fill_rect(gx + 12, gy, 36, 5, r) # flat top crown
+lcd.fill_rect(gx +  7, gy + 5, 46, 5, r) # upper shoulder
 lcd.fill_rect(gx +  3, gy + 10, 54, 5,  r)  # upper body
 lcd.fill_rect(gx,      gy + 15, 60, 10, r)  # widest band
-lcd.fill_rect(gx +  6, gy + 25, 48, 7,  r)  # lower body 1
+lcd.fill_rect(gx + 6, gy + 25, 48, 7, r) # lower body 1
 lcd.fill_rect(gx + 14, gy + 32, 32, 7,  r)  # lower body 2
 lcd.fill_rect(gx + 21, gy + 39, 18, 6,  r)  # taper 1
 lcd.fill_rect(gx + 26, gy + 45,  8, 4,  r)  # taper 2
 lcd.fill_rect(gx + 29, gy + 49,  2, 3,  r)  # tip
-lcd.fill_rect(gx +  9, gy +  6, 10, 3,  LCD::WHITE)  # glint highlight
+lcd.fill_rect(gx +  9, gy + 6, 10, 3, LCD::WHITE) # glint highlight
 
 last_sync = t.epoch
 loop do
-  lcd.text(40, 60, t.to_s[0, 10], color: LCD::CYAN, scale: 3)  # YYYY-MM-DD centered
+  lcd.text(40, 60, t.to_s[0, 10], color: LCD::CYAN, scale: 3) # YYYY-MM-DD centered
   lcd.text(32, 110, t.to_s[11, 8], color: LCD::WHITE, scale: 4) # HH:MM:SS centered
   t.sleep(1)
   if t - last_sync >= SYNC_INTERVAL
