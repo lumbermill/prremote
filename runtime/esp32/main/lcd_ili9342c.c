@@ -27,8 +27,8 @@
 
 #define LCD_HOST       SPI3_HOST
 #define LCD_PCLK_HZ    (40 * 1000 * 1000)
-#define LCD_MAX_CHUNK  2048   /* fits an 8x8 glyph at scale 4 (32*32*2) */
-#define LCD_MAX_SCALE  4
+#define LCD_MAX_CHUNK  4608   /* fits an 8x8 glyph at scale 6 (48*48*2) */
+#define LCD_MAX_SCALE  6
 
 /* Backlight PWM: top LEDC channel/timer to stay clear of the PWM class,
  * which allocates channels 0..7 and timers 0..3 from the bottom. */

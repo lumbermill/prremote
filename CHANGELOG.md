@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Sample (ESP32 / M5GO): `rubykaigi27_m5go.rb` — RubyKaigi 2027 (2027-04-13) countdown; shows days relative to the event (negative = before, 0 = event day, positive = after) in large text (scale 6) on the M5GO LCD with a Ruby gem logo (top-left), "RubyKaigi 2027" title (top-right), and a gray timestamp footer; syncs date/time via NTP.
+
+### Changed
+
+- Runtime (ESP32): `LCD_MAX_SCALE` raised from 4 to 6 and `LCD_MAX_CHUNK` from 2048 to 4608 bytes, enabling `lcd.text(..., scale: 5)` and `scale: 6` (48×48 px per glyph).
+
 - Samples (ESP32 / M5GO): five new samples for the M5Stack ecosystem.
   - `angle_meter_m5go.rb` — ANGLE SENSOR unit (PORT B / GPIO36) displayed as a real-time bar meter + percentage on the M5GO LCD.
   - `angle_theremin_m5go.rb` — ANGLE SENSOR knob controls the built-in speaker (GPIO25) pitch via PWM (200–2000 Hz); BtnA mutes, BtnC exits.
