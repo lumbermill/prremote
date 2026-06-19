@@ -91,7 +91,7 @@ prremote run lib.rb main.rb
 
 The device responds with `RUNNING`, streams any output, then `DONE`.
 
-You can find some examples in [test/samples](test/samples/).
+You can find some examples in [samples](samples/).
 
 ---
 
