@@ -19,16 +19,25 @@ MOUTH_W     = 70
 MOUTH_MIN_H = 4
 MOUTH_MAX_H = 62    # bottom border reaches y=239 at full open (175+62+2=239)
 
+def line_deltas(x0, y0, x1, y1)
+  dx = x1 >= x0 ? x1 - x0 : x0 - x1
+  dy = y1 >= y0 ? y1 - y0 : y0 - y1
+  sx = x0 < x1 ? 1 : -1
+  sy = y0 < y1 ? 1 : -1
+  [dx, dy, sx, sy]
+end
+
 # Bresenham line — each point rendered as a 3x3 block for visibility.
-def draw_line(lcd, x0, y0, x1, y1, color)
-  dx  = x1 >= x0 ? x1 - x0 : x0 - x1
-  dy  = y1 >= y0 ? y1 - y0 : y0 - y1
-  sx  = x0 < x1 ? 1 : -1
-  sy  = y0 < y1 ? 1 : -1
+# p0 = [x0, y0], p1 = [x1, y1]
+def draw_line(lcd, p0, p1, color)
+  x0, y0 = p0[0], p0[1]
+  x1, y1 = p1[0], p1[1]
+  dx, dy, sx, sy = line_deltas(x0, y0, x1, y1)
   err = dx - dy
   loop do
     lcd.fill_rect(x0, y0, 3, 3, color)
     break if x0 == x1 && y0 == y1
+
     e2 = err * 2
     if e2 >= -dy
       err -= dy
@@ -45,14 +54,14 @@ def draw_face(lcd, fg)
   c = fg
 
   # Left eye ">": three lines radiating left from tip at (120,85)
-  draw_line(lcd, 120, 85,  65,  55, c)  # upper-left
-  draw_line(lcd, 120, 85,  55,  85, c)  # horizontal left
-  draw_line(lcd, 120, 85,  65, 115, c)  # lower-left
+  draw_line(lcd, [120, 85], [65,  55], c)  # upper-left
+  draw_line(lcd, [120, 85], [55,  85], c)  # horizontal left
+  draw_line(lcd, [120, 85], [65, 115], c)  # lower-left
 
   # Right eye "<": three lines radiating right from tip at (200,85)
-  draw_line(lcd, 200, 85, 255,  55, c)  # upper-right
-  draw_line(lcd, 200, 85, 265,  85, c)  # horizontal right
-  draw_line(lcd, 200, 85, 255, 115, c)  # lower-right
+  draw_line(lcd, [200, 85], [255,  55], c)  # upper-right
+  draw_line(lcd, [200, 85], [265,  85], c)  # horizontal right
+  draw_line(lcd, [200, 85], [255, 115], c)  # lower-right
 end
 
 def draw_mouth(lcd, mouth_h, fg)

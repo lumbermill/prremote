@@ -48,16 +48,16 @@ lcd.fill(LCD::BLACK)
 # Ruby gem logo — top-left
 gx, gy = 4, 4
 r = LCD::RED
-lcd.fill_rect(gx + 12, gy,      36, 5, r)  # flat top crown
-lcd.fill_rect(gx +  7, gy +  5, 46, 5, r)  # upper shoulder
+lcd.fill_rect(gx + 12, gy, 36, 5, r) # flat top crown
+lcd.fill_rect(gx +  7, gy + 5, 46, 5, r) # upper shoulder
 lcd.fill_rect(gx +  3, gy + 10, 54, 5, r)  # upper body
-lcd.fill_rect(gx,      gy + 15, 60, 10, r)  # widest band
-lcd.fill_rect(gx +  6, gy + 25, 48, 7, r)  # lower body 1
+lcd.fill_rect(gx,      gy + 15, 60, 10, r) # widest band
+lcd.fill_rect(gx + 6, gy + 25, 48, 7, r) # lower body 1
 lcd.fill_rect(gx + 14, gy + 32, 32, 7, r)  # lower body 2
 lcd.fill_rect(gx + 21, gy + 39, 18, 6, r)  # taper 1
 lcd.fill_rect(gx + 26, gy + 45,  8, 4, r)  # taper 2
 lcd.fill_rect(gx + 29, gy + 49,  2, 3, r)  # tip
-lcd.fill_rect(gx +  9, gy +  6, 10, 3, LCD::WHITE)  # glint highlight
+lcd.fill_rect(gx +  9, gy + 6, 10, 3, LCD::WHITE) # glint highlight
 
 # "RubyKaigi" scale 3 (24px/char → 216×24px), right edge at x=296
 lcd.text(80, 10, "RubyKaigi", color: LCD::RED, scale: 3)
@@ -68,11 +68,11 @@ last_sync = t.epoch
 last_day  = nil
 loop do
   # Footer: "by prremote yyyy/mm/dd hh:mm:ss" in gray at screen bottom
-  mm = t.month < 10 ? "0#{t.month}" : "#{t.month}"
-  dd = t.day   < 10 ? "0#{t.day}"   : "#{t.day}"
-  hh = t.hour  < 10 ? "0#{t.hour}"  : "#{t.hour}"
-  mi = t.min   < 10 ? "0#{t.min}"   : "#{t.min}"
-  ss = t.sec   < 10 ? "0#{t.sec}"   : "#{t.sec}"
+  mm = t.month < 10 ? "0#{t.month}" : t.month.to_s
+  dd = t.day   < 10 ? "0#{t.day}"   : t.day.to_s
+  hh = t.hour  < 10 ? "0#{t.hour}"  : t.hour.to_s
+  mi = t.min   < 10 ? "0#{t.min}"   : t.min.to_s
+  ss = t.sec   < 10 ? "0#{t.sec}"   : t.sec.to_s
   # 31 chars * 8px = 248px; center: (320-248)/2 = 36
   lcd.text(36, 232, "by prremote #{t.year}/#{mm}/#{dd} #{hh}:#{mi}:#{ss}", color: GRAY, scale: 1)
 
@@ -83,14 +83,14 @@ loop do
     days = jst_day - EVENT_DAY
     day_str = days.to_s
     color = if days < 0
-      LCD::CYAN
-    elsif days == 0
-      LCD::GREEN
-    else
-      LCD::YELLOW
-    end
+              LCD::CYAN
+            elsif days == 0
+              LCD::GREEN
+            else
+              LCD::YELLOW
+            end
     # scale 6 = 48px/char; center horizontally, vertically in y=70..232
-    x = (320 - day_str.length * 48) / 2
+    x = (320 - (day_str.length * 48)) / 2
     lcd.fill_rect(0, 70, 320, 162, LCD::BLACK)
     lcd.text(x, 127, day_str, color: color, scale: 6)
   end

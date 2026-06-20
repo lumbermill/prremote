@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Sample (ESP32 / M5GO): `rubykaigi27_m5go.rb` — RubyKaigi 2027 (2027-04-13) countdown; shows days relative to the event (negative = before, 0 = event day, positive = after) in large text (scale 6) on the M5GO LCD with a Ruby gem logo (top-left), "RubyKaigi 2027" title (top-right), and a gray timestamp footer; syncs date/time via NTP.
+- Sample (ESP32 / M5GO): `savao.rb` — singing face animated on the M5GO LCD; ANGLE SENSOR (PORT B / GPIO36) controls speaker pitch (200–2000 Hz) and mouth opening simultaneously; BtnA mutes, BtnB inverts colors, BtnC exits.
 
 ### Changed
 
