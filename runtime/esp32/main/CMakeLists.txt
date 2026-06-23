@@ -53,9 +53,11 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
   MAX_REGS_SIZE=256
   MAX_SYMBOLS_COUNT=500
   MRBC_SCHEDULER_EXIT=1
+  MRBC_SUPPORT_OP_EXT
   HAS_LCD=1
   HAS_WIFI=1
   RUNTIME_VERSION="${RUNTIME_VERSION}"
+  MRB_BUFFER_SIZE_KB=64
 )
 
 # Find mrbc for compiling Ruby wrappers — same lookup as the Pico build

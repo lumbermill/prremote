@@ -29,7 +29,10 @@
 #include "lcd_wrap.h"
 #endif
 
-#define MRB_BUFFER_SIZE (32 * 1024)
+#ifndef MRB_BUFFER_SIZE_KB
+#define MRB_BUFFER_SIZE_KB 32
+#endif
+#define MRB_BUFFER_SIZE (MRB_BUFFER_SIZE_KB * 1024)
 #define HEAP_SIZE       (96 * 1024)
 
 /* Heap-allocated in prr_main: as static arrays they would live in .bss,

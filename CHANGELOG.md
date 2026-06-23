@@ -9,10 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Tool: `tools/img2rle.rb` — converts an image (JPEG, PNG, etc.) to RLE-encoded RGB565 Ruby source via ImageMagick; outputs a packed binary string constant (~4 bytes/segment) suitable for `fill_rect`-based playback on the device LCD. Run `ruby tools/img2rle.rb INPUT [OUTPUT] [options]`.
+
 - Sample (ESP32 / M5GO): `rubykaigi27_m5go.rb` — RubyKaigi 2027 (2027-04-13) countdown; shows days relative to the event (negative = before, 0 = event day, positive = after) in large text (scale 6) on the M5GO LCD with a Ruby gem logo (top-left), "RubyKaigi 2027" title (top-right), and a gray timestamp footer; syncs date/time via NTP.
 - Sample (ESP32 / M5GO): `savao.rb` — singing face animated on the M5GO LCD; ANGLE SENSOR (PORT B / GPIO36) controls speaker pitch (200–2000 Hz) and mouth opening simultaneously; BtnA mutes, BtnB inverts colors, BtnC exits.
 
 ### Changed
+
+- Runtime (ESP32): `MRB_BUFFER_SIZE_KB` increased to 64 (was 32); made overridable via compile-time define so Pico builds retain 32 KB. Enables bytecode files with large embedded string constants (e.g. RLE image data ~45 KB).
+- Runtime (ESP32): `MRBC_SUPPORT_OP_EXT` enabled; required for bytecode generated from files with many string literals.
 
 - Runtime (ESP32): `LCD_MAX_SCALE` raised from 4 to 6 and `LCD_MAX_CHUNK` from 2048 to 4608 bytes, enabling `lcd.text(..., scale: 5)` and `scale: 6` (48×48 px per glyph).
 
