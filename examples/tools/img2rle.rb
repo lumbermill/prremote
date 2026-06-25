@@ -31,8 +31,11 @@ OptionParser.new do |opts|
   opts.banner = "Usage: #{File.basename($PROGRAM_NAME)} INPUT [OUTPUT] [options]"
   opts.on('-w', '--width W',  Integer, 'Target width  (default: 320)') { |v| options[:width]  = v }
   opts.on('-h', '--height H', Integer, 'Target height (default: 240)') { |v| options[:height] = v }
-  opts.on('-c', '--const C',  String,  'Constant name')                 { |v| options[:const]  = v }
-  opts.on_tail('--help', 'Show this help') { puts opts; exit }
+  opts.on('-c', '--const C',  String,  'Constant name') { |v| options[:const] = v }
+  opts.on_tail('--help', 'Show this help') do
+    puts opts
+    exit
+  end
 end.parse!
 
 input = ARGV.shift or abort "Input file required. Run with --help for usage."
@@ -84,7 +87,7 @@ rle = []
   run_color = nil
   run_count = 0
   (0...w).each do |col|
-    base  = (row * w + col) * 3
+    base = ((row * w) + col) * 3
     r, g, b = raw.getbyte(base), raw.getbyte(base + 1), raw.getbyte(base + 2)
     color = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
     if color == run_color
@@ -95,13 +98,13 @@ rle = []
       run_count = 1
     end
   end
-  rle << [run_color, run_count] if run_color  # flush at row boundary
+  rle << [run_color, run_count] if run_color # flush at row boundary
 end
 
 segments  = rle.size
 ratio     = (w.to_f * h / segments).round(1)
 bin_bytes = segments * 4
-mrb_est   = bin_bytes + 4096  # rough estimate: string pool + shokupanman overhead
+mrb_est   = bin_bytes + 4096 # rough estimate: string pool + shokupanman overhead
 
 warn "RLE: #{segments} segments, #{ratio}x compression → #{bin_bytes} bytes packed"
 if mrb_est > 64 * 1024
@@ -123,9 +126,9 @@ File.open(output, 'w') do |f|
 
   slices = rle.each_slice(SEGS_PER_LINE).to_a
   slices.each_with_index do |slice, idx|
-    hex = slice.flat_map { |color, count|
+    hex = slice.flat_map do |color, count|
       [(color >> 8) & 0xFF, color & 0xFF, (count >> 8) & 0xFF, count & 0xFF]
-    }.map { |b| "\\x#{b.to_s(16).rjust(2, '0')}" }.join
+    end.map { |b| "\\x#{b.to_s(16).rjust(2, '0')}" }.join
     continuation = idx < slices.size - 1 ? ' \\' : ''
     prefix = idx == 0 ? "#{const} = \"" : '  "'
     f.puts "#{prefix}#{hex}\"#{continuation}"
