@@ -77,3 +77,35 @@ BOOTSEL モードでは USB PID・ボリューム名・`INFO_UF2.TXT` がすべ�
 同じ esp32 ランタイムで射程内。差分は LCD ピン（CS=5, DC=15, RST なし）と
 **AXP192 電源初期化**（LDO2/DCDC3/GPIO4 を叩かないと画面が点かない）の追加のみ。
 タッチ（FT6336U、I2C 0x38）は I2C バインディングで Ruby から読める。
+
+### LCD クラスの拡張
+
+現状の `LCD` は `fill` / `fill_rect` / `pixel` / `text` のみ。以下を C 層に追加したい。
+
+- `draw_line(x0, y0, x1, y1, color)` — Bresenham の線分アルゴリズム
+- `draw_ellipse(cx, cy, a, b, color)` — Midpoint ellipse algorithm（塗りつぶし版も）
+- `draw_circle(cx, cy, r, color)` — 同上、円特化版
+
+現状はこれらをユーザースクリプト側で `fill_rect` の積み上げにより実装しているが、
+C 層に持つと速度・コード量とも改善できる。
+
+### 画像表示（`draw_image`）の実装方法検討
+
+現状の `tools/img2rle.rb` は RGB565 RLE をバイナリ文字列定数として `.rb` ファイルに埋め込み、
+`String#getbyte` で走査して `fill_rect` を呼ぶアプローチ。
+
+**懸念点:**
+
+- RLE データが大きいと mrb バッファを圧迫する（現状 64 KB に拡張して対応しているが綱渡り）
+- Ruby バイトコードへの埋め込みが本来の用途外
+- 単色域が少ない写真では圧縮率が低く、バッファに入りきらない可能性がある
+
+**検討すべき代替案:**
+
+- **deploy 経由でバイナリを Flash に置く**: `prremote deploy` で `.bin` をパーティションに書き込み、
+  デバイス側で Flash から直接読む。mrb バッファを消費しない。Ruby API は `LCD.draw_image(name)` 程度で済む。
+- **SPIFFS / LittleFS 上のファイル**: ESP-IDF の VFS でファイルとして扱い、
+  ストリーム読み込みで描画。汎用性が高いが実装コストも大きい。
+- **現行 RLE + デバイス側定数参照（現状維持）**: シンプルだが大きな画像には不向き。
+
+→ **方針未定。実装前に上記トレードオフを再評価する。**
