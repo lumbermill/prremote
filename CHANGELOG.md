@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Examples (XIAO ESP32C6): `examples/xiao_c6/` — four examples for the Seeed Studio XIAO ESP32C6: `gpio.rb` (onboard LED GPIO 15 active-low, button input on GPIO 2), `wifi.rb`, `i2c_scan.rb` (SDA=GPIO 6 / SCL=GPIO 7), `ntp_clock.rb` (NTP-synced JST clock printed to serial; no LCD on XIAO).
+
 - Tool: `tools/img2rle.rb` — converts an image (JPEG, PNG, etc.) to RLE-encoded RGB565 Ruby source via ImageMagick; outputs a packed binary string constant (~4 bytes/segment) suitable for `fill_rect`-based playback on the device LCD. Run `ruby tools/img2rle.rb INPUT [OUTPUT] [options]`.
 
 - Sample (ESP32 / M5GO): `rubykaigi27.rb` — RubyKaigi 2027 (2027-04-13) countdown; shows days relative to the event (negative = before, 0 = event day, positive = after) in large text (scale 6) on the M5GO LCD with a Ruby gem logo (top-left), "RubyKaigi 2027" title (top-right), and a gray timestamp footer; syncs date/time via NTP.
