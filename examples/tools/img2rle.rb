@@ -43,8 +43,8 @@ abort "File not found: #{input}" unless File.exist?(input)
 
 w     = options[:width]
 h     = options[:height]
-const = options[:const] || (File.basename(input, '.*').upcase.gsub(/[^A-Z0-9]+/, '_') + '_RLE')
-output = ARGV.shift || File.join(File.dirname(input), File.basename(input, '.*') + '_rle.rb')
+const = options[:const] || "#{File.basename(input, '.*').upcase.gsub(/[^A-Z0-9]+/, '_')}_RLE"
+output = ARGV.shift || File.join(File.dirname(input), "#{File.basename(input, '.*')}_rle.rb")
 
 # Prefer "magick" (IMv7+); fall back to "convert" (IMv4/5/6).
 magick_cmd = if system('magick', '--version', out: IO::NULL, err: IO::NULL)
@@ -128,7 +128,7 @@ File.open(output, 'w') do |f|
   slices.each_with_index do |slice, idx|
     hex = slice.flat_map do |color, count|
       [(color >> 8) & 0xFF, color & 0xFF, (count >> 8) & 0xFF, count & 0xFF]
-    end.map { |b| "\\x#{b.to_s(16).rjust(2, '0')}" }.join
+    end.map { |b| "\\x#{b.to_s(16).rjust(2, '0')}" }.join # rubocop:disable Style/MultilineBlockChain
     continuation = idx < slices.size - 1 ? ' \\' : ''
     prefix = idx == 0 ? "#{const} = \"" : '  "'
     f.puts "#{prefix}#{hex}\"#{continuation}"
