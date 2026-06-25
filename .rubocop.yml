@@ -72,3 +72,7 @@ Style/NumericLiterals:
 # it is not redundant there.
 Lint/RedundantStringCoercion:
   Enabled: false
+
+Style/MultilineBlockChain:
+  Exclude:
+    - "examples/tools/**/*"

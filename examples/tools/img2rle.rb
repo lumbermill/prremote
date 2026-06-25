@@ -128,7 +128,7 @@ File.open(output, 'w') do |f|
   slices.each_with_index do |slice, idx|
     hex = slice.flat_map do |color, count|
       [(color >> 8) & 0xFF, color & 0xFF, (count >> 8) & 0xFF, count & 0xFF]
-    end.map { |b| "\\x#{b.to_s(16).rjust(2, '0')}" }.join # rubocop:disable Style/MultilineBlockChain
+    end.map { |b| "\\x#{b.to_s(16).rjust(2, '0')}" }.join
     continuation = idx < slices.size - 1 ? ' \\' : ''
     prefix = idx == 0 ? "#{const} = \"" : '  "'
     f.puts "#{prefix}#{hex}\"#{continuation}"
