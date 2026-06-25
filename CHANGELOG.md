@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Runtime: `exit` method — stops the running script and returns the runtime to READY state (equivalent to the script finishing naturally; no reboot). Available on all platforms (Pico, ESP32, ESP32-C6). Optional argument accepted but ignored.
+
 - Runtime: `esp32c6` build target — supports ESP32-C6 (RISC-V) boards such as the Seeed Studio XIAO ESP32C6. Console via USB Serial/JTAG (no UART-to-USB bridge); no LCD; LEDC 6 channels; SPI2_HOST only; ADC on GPIO 0–6; default I2C SDA=6/SCL=7, SPI SCK=19/MOSI=18. `merge_bin` bootloader placed at `0x0` (RISC-V requirement, vs `0x1000` on Xtensa). Build: `rake build:esp32c6` (requires `./install.sh esp32c6` from ESP-IDF).
 
 - Examples (XIAO ESP32C6): `examples/xiao_c6/` — four examples for the Seeed Studio XIAO ESP32C6: `gpio.rb` (onboard LED GPIO 15 active-low, button input on GPIO 2), `wifi.rb`, `i2c_scan.rb` (SDA=GPIO 6 / SCL=GPIO 7), `ntp_clock.rb` (NTP-synced JST clock printed to serial; no LCD on XIAO).

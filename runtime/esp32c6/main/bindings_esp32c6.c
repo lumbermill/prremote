@@ -48,6 +48,16 @@ static void c_uptime_ms(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 /* ------------------------------------------------------------------ */
+/* exit([code])  — stop the current script and return to READY        */
+/* ------------------------------------------------------------------ */
+
+static void c_exit(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  vm->flag_stop = 1;
+  vm->flag_preemption = 1;
+}
+
+/* ------------------------------------------------------------------ */
 /* Raw GPIO bindings                                                   */
 /* All ESP32-C6 GPIOs support input and output; no input-only pins.   */
 /* ------------------------------------------------------------------ */
@@ -485,6 +495,7 @@ void runtime_define_methods(void)
 {
   mrbc_define_method(0, mrbc_class_object, "sleep",           c_sleep);
   mrbc_define_method(0, mrbc_class_object, "uptime_ms",       c_uptime_ms);
+  mrbc_define_method(0, mrbc_class_object, "exit",             c_exit);
   mrbc_define_method(0, mrbc_class_object, "_gpio_init",      c_gpio_init);
   mrbc_define_method(0, mrbc_class_object, "_gpio_set_dir",   c_gpio_set_dir);
   mrbc_define_method(0, mrbc_class_object, "_gpio_pull_up",   c_gpio_pull_up);
