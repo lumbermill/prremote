@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Tool: `tools/img2rle.rb` — converts an image (JPEG, PNG, etc.) to RLE-encoded RGB565 Ruby source via ImageMagick; outputs a packed binary string constant (~4 bytes/segment) suitable for `fill_rect`-based playback on the device LCD. Run `ruby tools/img2rle.rb INPUT [OUTPUT] [options]`.
 
-- Sample (ESP32 / M5GO): `rubykaigi27_m5go.rb` — RubyKaigi 2027 (2027-04-13) countdown; shows days relative to the event (negative = before, 0 = event day, positive = after) in large text (scale 6) on the M5GO LCD with a Ruby gem logo (top-left), "RubyKaigi 2027" title (top-right), and a gray timestamp footer; syncs date/time via NTP.
+- Sample (ESP32 / M5GO): `rubykaigi27.rb` — RubyKaigi 2027 (2027-04-13) countdown; shows days relative to the event (negative = before, 0 = event day, positive = after) in large text (scale 6) on the M5GO LCD with a Ruby gem logo (top-left), "RubyKaigi 2027" title (top-right), and a gray timestamp footer; syncs date/time via NTP.
 - Sample (ESP32 / M5GO): `savao.rb` — singing face animated on the M5GO LCD; ANGLE SENSOR (PORT B / GPIO36) controls speaker pitch (200–2000 Hz) and mouth opening simultaneously; BtnA mutes, BtnB inverts colors, BtnC exits.
 
 ### Changed
@@ -22,15 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime (ESP32): `LCD_MAX_SCALE` raised from 4 to 6 and `LCD_MAX_CHUNK` from 2048 to 4608 bytes, enabling `lcd.text(..., scale: 5)` and `scale: 6` (48×48 px per glyph).
 
 - Samples (ESP32 / M5GO): five new samples for the M5Stack ecosystem.
-  - `angle_meter_m5go.rb` — ANGLE SENSOR unit (PORT B / GPIO36) displayed as a real-time bar meter + percentage on the M5GO LCD.
-  - `angle_theremin_m5go.rb` — ANGLE SENSOR knob controls the built-in speaker (GPIO25) pitch via PWM (200–2000 Hz); BtnA mutes, BtnC exits.
-  - `motion_counter_m5go.rb` — MOTION SENSOR unit (PIR, PORT B / GPIO36) counts rising-edge events; large count on LCD, BtnA resets.
-  - `whack_a_mole_m5go.rb` — Whack-a-Mole game: moles appear in left/center/right columns, press A/B/C to whack; 20 rounds, score on LCD.
-  - `imu_level_m5go.rb` — Digital spirit level using the built-in MPU6886 IMU (I2C 0x68); a bubble moves with tilt, turns green when level.
+  - `angle_meter.rb` — ANGLE SENSOR unit (PORT B / GPIO36) displayed as a real-time bar meter + percentage on the M5GO LCD.
+  - `angle_theremin.rb` — ANGLE SENSOR knob controls the built-in speaker (GPIO25) pitch via PWM (200–2000 Hz); BtnA mutes, BtnC exits.
+  - `motion_counter.rb` — MOTION SENSOR unit (PIR, PORT B / GPIO36) counts rising-edge events; large count on LCD, BtnA resets.
+  - `whack_a_mole.rb` — Whack-a-Mole game: moles appear in left/center/right columns, press A/B/C to whack; 20 rounds, score on LCD.
+  - `imu_level.rb` — Digital spirit level using the built-in MPU6886 IMU (I2C 0x68); a bubble moves with tilt, turns green when level.
 
 ### Changed
 
-- Sample (`ntp_clock_m5go.rb`): center date and time horizontally on the 320×240 LCD; add a Ruby gem logo (flat-top faceted diamond silhouette, red with white glint) in the bottom-right corner; move "JST (UTC+9)" label up and add "by prremote" footer.
+- Sample (`ntp_clock.rb`): center date and time horizontally on the 320×240 LCD; add a Ruby gem logo (flat-top faceted diamond silhouette, red with white glint) in the bottom-right corner; move "JST (UTC+9)" label up and add "by prremote" footer.
+
+- Examples: `examples/esp32/` renamed to `examples/m5go/`; `_m5go` suffix dropped from all filenames (folder name now conveys the board context).
 
 ## [0.2.0] - 2026-06-12
 
