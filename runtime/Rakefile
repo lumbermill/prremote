@@ -16,11 +16,11 @@ BOARDS = {
 
 # gem board label => built artifact path (all boards, for cache/release)
 def artifact(label)
-  ext = label == 'esp32' ? 'bin' : 'uf2'
+  ext = label.start_with?('esp32') ? 'bin' : 'uf2'
   "build/#{label}/prremote-#{label}-runtime-#{RUNTIME_VERSION}.#{ext}"
 end
 
-ALL_BOARDS = (BOARDS.keys + ['esp32']).freeze
+ALL_BOARDS = (BOARDS.keys + ['esp32', 'esp32c6']).freeze
 
 namespace :build do
   BOARDS.each do |label, cmake_board|
@@ -50,6 +50,25 @@ namespace :build do
         "0x10000 build/prremote-esp32-runtime.bin",
         chdir: 'esp32'
     puts "Output: #{artifact('esp32')}"
+  end
+
+  desc "Build #{artifact('esp32c6')} (requires ESP-IDF at #{IDF_PATH})"
+  task :esp32c6 do
+    unless File.exist?(File.join(IDF_PATH, 'export.sh'))
+      abort "ESP-IDF not found at #{IDF_PATH}.\n" \
+            "Install it (see README.md) or set IDF_PATH."
+    end
+    idf "idf.py build", chdir: 'esp32c6'
+
+    # ESP32-C6 bootloader lives at 0x0 (not 0x1000 like the classic ESP32).
+    mkdir_p 'build/esp32c6'
+    idf "esptool.py --chip esp32c6 merge_bin -o ../#{artifact('esp32c6')} " \
+        "--flash_mode dio --flash_freq 80m --flash_size 4MB " \
+        "0x0 build/bootloader/bootloader.bin " \
+        "0x8000 build/partition_table/partition-table.bin " \
+        "0x10000 build/prremote-esp32c6-runtime.bin",
+        chdir: 'esp32c6'
+    puts "Output: #{artifact('esp32c6')}"
   end
 end
 

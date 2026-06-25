@@ -1,0 +1,9 @@
+# prremote ESP32-C6 partition table (4 MB flash layout).
+# Offsets are identical to the classic ESP32 build; the bootloader lives at
+# 0x0 on ESP32-C6 (not 0x1000), but that only affects the merge_bin step —
+# the partition table itself starts at 0x8000 on both chips.
+# Name,     Type, SubType, Offset,   Size
+nvs,        data, nvs,     0x9000,   0x6000
+phy_init,   data, phy,     0xf000,   0x1000
+factory,    app,  factory, 0x10000,  0x300000
+prremote,   data, 0x40,    0x310000, 0x10000

@@ -1,0 +1,26 @@
+CONFIG_IDF_TARGET="esp32c6"
+
+# 4 MB layout works on the XIAO ESP32C6 (4 MB flash).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# XIAO ESP32C6 routes USB-C directly to the ESP32-C6 native USB peripheral
+# (no separate USB-UART bridge chip); use USB Serial/JTAG as the console.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# Keep boot/app logs from polluting the READY protocol stream.
+CONFIG_BOOTLOADER_LOG_LEVEL_ERROR=y
+CONFIG_LOG_DEFAULT_LEVEL_ERROR=y
+
+# The mruby/c VM runs inside app_main's task.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
+# 1 ms tick so sleep() granularity matches the Pico runtime.
+CONFIG_FREERTOS_HZ=1000
+
+# A busy Ruby loop legitimately starves the idle task; the task watchdog
+# would print warnings into the protocol stream, so keep it off.
+CONFIG_ESP_TASK_WDT_INIT=n
+
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
