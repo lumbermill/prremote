@@ -20,6 +20,7 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 - Supported boards:
   - Raspberry Pi Pico W / Pico
   - ESP32 (classic) — e.g. M5GO / M5Stack Core gen1, generic dev boards
+  - ESP32-C6 (RISC-V) — e.g. Seeed Studio XIAO ESP32C6
 - `mrbc` (mruby 4.x) for `run`, `deploy`, and `eval`
   - macOS: `brew install mruby`
   - Linux: build from source — [github.com/mruby/mruby/releases](https://github.com/mruby/mruby/releases)
@@ -56,21 +57,24 @@ prremote run app.rb
 
 ### `install`
 
-Flash the prremote runtime firmware to a Pico W, Pico, or ESP32.
+Flash the prremote runtime firmware to a supported board.
 
 ```bash
-prremote install                          # Pico W (default)
-prremote install --board pico             # Pico (no wireless)
-prremote install --board esp32            # ESP32 (M5GO / M5Stack Core, etc.)
-prremote install --version 0.1.1          # specify a runtime version
-prremote install --board pico --version 0.1.1
+prremote install                          # show supported boards
+prremote install -b picow                 # Pico W
+prremote install -b pico                  # Pico (no wireless)
+prremote install -b esp32                 # ESP32 (M5GO / M5Stack Core, etc.)
+prremote install -b esp32c6               # ESP32-C6 (e.g. XIAO ESP32C6)
+prremote install -b picow --version 0.1.1 # specify a runtime version
 ```
+
+`-b` / `--board` selects the target board. Running `install` without `--board` prints the list of supported boards.
 
 The firmware is downloaded from GitHub Releases on first use and cached in `~/.prremote/runtime/`. Subsequent installs use the cache.
 
 Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
 
-ESP32 boards: no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5). Reflashing the runtime does not erase a deployed script.
+ESP32 / ESP32-C6 boards: no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5). Reflashing the runtime does not erase a deployed script.
 
 ---
 
@@ -180,7 +184,7 @@ prremote version
 | Option | Description |
 |---|---|
 | `--port`, `-p PORT` | Serial port (default: auto-detect) |
-| `--baud`, `-b N` | Baud rate (default: `115200`) |
+| `--baud N` | Baud rate (default: `115200`) |
 
 ---
 
@@ -188,7 +192,7 @@ prremote version
 
 ```bash
 # First-time setup
-prremote install
+prremote install -b picow     # or: pico / esp32 / esp32c6
 
 # Manual cycle
 prremote run app.rb       # compile + run (one-shot)
@@ -281,3 +285,7 @@ bundle exec rake test
 - [mruby/c](https://github.com/mrubyc/mrubyc) — Lightweight mruby implementation used in the runtime
 - [picotool](https://github.com/raspberrypi/picotool) — Official Raspberry Pi tool for inspecting and managing Pico devices; useful for checking what's on flash or force-rebooting outside of prremote
 - [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) — MicroPython equivalent (inspiration)
+
+https://wiki.seeedstudio.com/ja/xiao_esp32c6_getting_started/
+
+brew install esptool

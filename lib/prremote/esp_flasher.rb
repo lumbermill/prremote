@@ -3,20 +3,19 @@ require 'digest'
 require 'rbconfig'
 
 module Prremote
-  # Pure-Ruby ESP32 flasher — speaks the Espressif serial bootloader protocol
-  # directly so `install --board esp32` needs no esptool / Python.
+  # Pure-Ruby flasher for classic ESP32 (Xtensa) boards.
+  # Speaks the Espressif serial bootloader protocol directly so
+  # `install --board esp32` needs no external tools.
   #
-  # Talks to the ESP32 (classic) ROM loader only (no stub upload): SYNC,
-  # SPI_ATTACH, SPI_SET_PARAMS, CHANGE_BAUDRATE, FLASH_BEGIN/DATA/END and
-  # SPI_FLASH_MD5 — enough to write a merged image at offset 0x0 and verify it.
+  # For ESP32-C6 and other USB-JTAG/Serial chips the ROM does not support
+  # direct flash write/erase (FLASH_BEGIN returns error 0x38 regardless of
+  # parameters).  esptool uploads a RAM stub before writing; we delegate those
+  # boards to the `esptool` CLI instead of reimplementing the stub protocol.
+  #
   # Protocol reference:
   # https://docs.espressif.com/projects/esptool/en/latest/esp32/advanced-topics/serial-protocol.html
-  #
-  # The chip is put into (and out of) the boot ROM by toggling DTR/RTS through
-  # the USB-UART bridge's auto-reset circuit, via ioctl on the serial fd —
-  # macOS and Linux only.
   class EspFlasher
-    # Command opcodes (ROM loader subset)
+    # Command opcodes
     FLASH_BEGIN    = 0x02
     FLASH_DATA     = 0x03
     FLASH_END      = 0x04
@@ -26,41 +25,58 @@ module Prremote
     CHANGE_BAUD    = 0x0F
     SPI_FLASH_MD5  = 0x13
 
-    FLASH_WRITE_SIZE = 0x400 # ROM loader max data per FLASH_DATA packet
-    STATUS_BYTES     = 4     # ESP32 ROM appends 4 status bytes to responses
+    FLASH_WRITE_SIZE = 0x400 # max data per FLASH_DATA packet
     CHECKSUM_SEED    = 0xEF
+    ROM_BAUD         = 115_200
 
-    ROM_BAUD = 115_200
+    # Boards with built-in USB Serial/JTAG — flashed via esptool subprocess.
+    USB_JTAG_SERIAL_BOARDS = %w[esp32c6].freeze
+
+    # ROM status-byte count: classic ESP32 appends 4 bytes, RISC-V chips 2.
+    STATUS_BYTES_BY_BOARD = Hash.new(4).freeze
+
+    # Classic ESP32 SPI_ATTACH takes [hspi_arg, extended_arg] (8 bytes);
+    # newer RISC-V chips take only [hspi_arg] (4 bytes).
+    SPI_ATTACH_LEGACY_BOARDS = %w[esp32].freeze
+
+    MD5_HEX_LENGTH = 32
+    MD5_RAW_LENGTH = 16
 
     # ioctl modem-control constants
     TIOCM_DTR = 0x0002
     TIOCM_RTS = 0x0004
     DARWIN    = RbConfig::CONFIG['host_os'] =~ /darwin/ ? true : false
     TIOCMGET  = DARWIN ? 0x4004746A : 0x5415
-    TIOCMSET  = DARWIN ? 0x8004746D : 0x5418
+    TIOCMBIS  = DARWIN ? 0x8004746E : 0x5416
+    TIOCMBIC  = DARWIN ? 0x8004746F : 0x5417
 
     class Error < RuntimeError; end
 
-    # Flashes `image_path` at offset 0x0 and verifies it with an on-chip MD5.
-    # The transfer runs at `baud` when rubyserial supports it locally
-    # (macOS termios caps out at 230400), otherwise at the ROM's 115200.
-    def self.flash(port:, image_path:, baud: 230_400)
-      unless RbConfig::CONFIG['host_os'] =~ /darwin|linux/
-        raise Error, 'pure-Ruby flashing supports macOS/Linux only; ' \
-                     'on other systems flash with esptool: ' \
-                     "esptool write_flash 0x0 #{image_path}"
+    # Entry point.  Routes USB-JTAG/Serial boards through esptool; handles
+    # classic ESP32 with the pure-Ruby protocol implementation.
+    def self.flash(port:, image_path:, baud: 230_400, board: nil, verbose: false)
+      if USB_JTAG_SERIAL_BOARDS.include?(board)
+        return flash_via_esptool(port: port, image_path: image_path, board: board,
+                                 verbose: verbose)
       end
 
-      image  = File.binread(image_path)
-      serial = Serial.new(port, ROM_BAUD)
-      flasher = new(serial, fd: serial.instance_variable_get(:@fd))
+      unless RbConfig::CONFIG['host_os'] =~ /darwin|linux/
+        raise Error, 'pure-Ruby flashing supports macOS/Linux only; ' \
+                     'on other systems use esptool: ' \
+                     "esptool write-flash 0x0 #{image_path}"
+      end
+
+      image        = File.binread(image_path)
+      status_bytes = STATUS_BYTES_BY_BOARD[board]
+      serial       = Serial.new(port, ROM_BAUD)
+      flasher      = new(serial, fd: serial.instance_variable_get(:@fd),
+                                 status_bytes: status_bytes, board: board, verbose: verbose)
       begin
         flasher.enter_bootloader
         flasher.sync!
-        serial = flasher.upgrade_baud(port, baud) if baud != ROM_BAUD && baud_supported?(baud)
+        upgrade = baud != ROM_BAUD && baud_supported?(baud)
+        serial = flasher.upgrade_baud(port, baud) if upgrade
         flasher.write_flash(image, offset: 0)
-        # Verify before FLASH_END: the ROM loader has been seen going quiet
-        # after that command, while MD5 right after the last block is reliable.
         flasher.verify_md5(image, offset: 0)
         flasher.finish_flash
         flasher.hard_reset
@@ -69,28 +85,68 @@ module Prremote
       end
     end
 
-    # The local termios layer must support the baud before CHANGE_BAUDRATE is
-    # sent to the chip — once the chip switches, there is no way back without
-    # a re-sync, so never request a speed we cannot reopen at.
     def self.baud_supported?(baud)
       RubySerial::Posix::BAUDE_RATES.key?(baud)
     rescue NameError
       false
     end
 
-    # `serial` needs #read/#write; `fd` enables DTR/RTS control and may be
-    # nil in tests.
-    def initialize(serial, fd: nil)
-      @serial = serial
-      @fd     = fd
-      @rxbuf  = +''.b
+    # Flash via the `esptool` CLI (required for USB-JTAG/Serial boards whose
+    # ROM does not support direct write).  esptool handles stub upload
+    # internally; we just need it installed.
+    def self.flash_via_esptool(port:, image_path:, board:, verbose:)
+      esptool = find_esptool
+      unless esptool
+        raise Error, <<~MSG.strip
+          Flashing #{board} requires esptool.
+          Install:  brew install esptool
+              or:  pip3 install esptool
+        MSG
+      end
+
+      warn ''
+      warn 'Put the board in bootloader mode while "Connecting..." is shown:'
+      warn '  XIAO ESP32C6: hold BOOT, press RST, release both.'
+
+      cmd = [*esptool,
+             '--chip', board, '--port', port,
+             '--before', 'no-reset', '--after', 'no-reset',
+             'write-flash', '0x0', image_path]
+      warn "[flash] #{cmd.join(' ')}" if verbose
+      system(*cmd) or raise Error, 'esptool exited with an error'
+
+      warn ''
+      warn 'Flash complete. Press RST to start the firmware.'
     end
 
-    # ── chip reset control (DTR/RTS via the auto-download circuit) ────────
+    def self.find_esptool
+      dirs = ENV.fetch('PATH', '').split(File::PATH_SEPARATOR)
+      %w[esptool esptool.py].each do |exe|
+        return [exe] if dirs.any? { |d| (f = File.join(d, exe)) && File.executable?(f) && !File.directory?(f) }
+      end
+      # python3 -m esptool fallback: must actually import the module to verify
+      return ['python3', '-m', 'esptool'] if
+        system('python3', '-c', 'import esptool', out: File::NULL, err: File::NULL)
 
+      nil
+    rescue StandardError
+      nil
+    end
+
+    # ── instance ──────────────────────────────────────────────────────────
+
+    # `serial` needs #read/#write; `fd` enables DTR/RTS control.
+    def initialize(serial, fd: nil, status_bytes: 4, board: nil, verbose: false)
+      @serial       = serial
+      @fd           = fd
+      @rxbuf        = +''.b
+      @status_bytes = status_bytes
+      @board        = board.to_s
+      @verbose      = verbose
+    end
+
+    # Classic auto-reset: RTS→EN, DTR→IO0 (via external UART bridge).
     def enter_bootloader
-      # esptool's "classic reset": hold EN low, release it with IO0 low so
-      # the chip starts the ROM loader, then release IO0.
       set_lines(dtr: false, rts: true)
       sleep 0.1
       set_lines(dtr: true, rts: false)
@@ -108,27 +164,28 @@ module Prremote
 
     def sync!
       payload = [0x07, 0x07, 0x12, 0x20].pack('C4') + ([0x55] * 32).pack('C32')
-      synced = 8.times.any? do
+      synced = 8.times.any? do |i|
         @rxbuf.clear
         begin
+          vlog format('sync: attempt %<n>d/8 (status_bytes=%<sb>d)', n: i + 1, sb: @status_bytes)
           command(SYNC, payload, timeout: 0.5)
           drain_responses
+          vlog 'sync: success'
           true
-        rescue Error
+        rescue Error => e
+          vlog format('sync: attempt %<n>d failed (%<msg>s)', n: i + 1, msg: e.message)
           false
         end
       end
-      raise Error, 'could not sync with the ESP32 boot ROM' unless synced
+      raise Error, 'could not sync with the ESP boot ROM' unless synced
     end
 
-    # CHANGE_BAUDRATE, then reopen the port at the new speed. Plain open does
-    # not touch DTR/RTS (verified with rubyserial), so the chip stays in the
-    # bootloader across the reopen.
+    # CHANGE_BAUDRATE, then reopen the port at the new speed.
     def upgrade_baud(port, baud)
       command(CHANGE_BAUD, [baud, 0].pack('V2'))
       @serial.close
       sleep 0.05
-      serial = Serial.new(port, baud)
+      serial  = Serial.new(port, baud)
       @serial = serial
       @fd     = serial.instance_variable_get(:@fd)
       @rxbuf.clear
@@ -136,36 +193,33 @@ module Prremote
     end
 
     def write_flash(image, offset: 0)
-      command(SPI_ATTACH, [0, 0].pack('V2'))
-      # id, total size, block size, sector size, page size, status mask
-      command(SPI_SET_PARAMS,
-              [0, 4 * 1024 * 1024, 64 * 1024, 4096, 256, 0xFFFF].pack('V6'))
+      spi_attach_payload = SPI_ATTACH_LEGACY_BOARDS.include?(@board) ? [0, 0].pack('V2') : [0].pack('V')
+      command(SPI_ATTACH, spi_attach_payload)
+      # id, total_size, block_size, sector_size, page_size, status_mask
+      command(SPI_SET_PARAMS, [0, 4 * 1024 * 1024, 64 * 1024, 4096, 256, 0xFFFF].pack('V6'))
 
-      blocks = (image.bytesize + FLASH_WRITE_SIZE - 1) / FLASH_WRITE_SIZE
-      # The ROM erases the region inside FLASH_BEGIN; allow ~30 s per MB.
-      erase_timeout = 30 * (1 + (image.bytesize / (1024 * 1024)))
-      command(FLASH_BEGIN,
-              [image.bytesize, blocks, FLASH_WRITE_SIZE, offset].pack('V4'),
+      blocks        = (image.bytesize + FLASH_WRITE_SIZE - 1) / FLASH_WRITE_SIZE
+      erase_size    = blocks * FLASH_WRITE_SIZE
+      erase_timeout = 30 * (1 + (erase_size / (1024 * 1024)))
+      command(FLASH_BEGIN, [erase_size, blocks, FLASH_WRITE_SIZE, offset].pack('V4'),
               timeout: erase_timeout)
       stream_blocks(image, blocks)
     end
 
-    # Every block is already committed once its FLASH_DATA is acked, so
-    # FLASH_END is only a courtesy "done" (we leave the loader via hard_reset
-    # anyway). The ESP32 ROM has been seen answering it with error 0x06 —
-    # ignore it; the MD5 check is the source of truth.
+    # FLASH_END is a courtesy; hard_reset resets the chip anyway.
+    # The ROM has been seen returning error 0x06 here — ignore it.
     def finish_flash
-      command(FLASH_END, [1].pack('V')) # 1 = stay in the loader
+      command(FLASH_END, [1].pack('V'))
     rescue Error
       nil
     end
 
     def verify_md5(image, offset: 0)
-      timeout = 8 * (1 + (image.bytesize / (1024 * 1024)))
-      _value, data = command(SPI_FLASH_MD5,
-                             [offset, image.bytesize, 0, 0].pack('V4'),
-                             timeout: timeout)
-      device_md5 = data[0, 32] # the ROM loader answers as 32 hex chars
+      timeout    = 8 * (1 + (image.bytesize / (1024 * 1024)))
+      _v, data   = command(SPI_FLASH_MD5, [offset, image.bytesize, 0, 0].pack('V4'),
+                           timeout: timeout)
+      # Classic ESP32 ROM returns 32 hex ASCII chars; detect by length.
+      device_md5 = data.bytesize >= MD5_HEX_LENGTH ? data[0, MD5_HEX_LENGTH] : data[0, MD5_RAW_LENGTH].unpack1('H*')
       local_md5  = Digest::MD5.hexdigest(image)
       return if device_md5 == local_md5
 
@@ -174,8 +228,6 @@ module Prremote
 
     # ── request/response plumbing ──────────────────────────────────────────
 
-    # Sends one command packet and waits for its response.
-    # Returns [value, data] from the response (status bytes stripped).
     def command(op, payload, checksum: 0, timeout: 3)
       packet = [0x00, op, payload.bytesize].pack('CCv') +
                [checksum].pack('V') + payload
@@ -206,6 +258,10 @@ module Prremote
 
     private
 
+    def vlog(msg)
+      warn "[flash] #{msg}" if @verbose
+    end
+
     def stream_blocks(image, blocks)
       blocks.times do |seq|
         block = image.byteslice(seq * FLASH_WRITE_SIZE, FLASH_WRITE_SIZE)
@@ -218,25 +274,21 @@ module Prremote
       $stderr.print "\n"
     end
 
-    # Returns [value, data] when the frame is the response to `op`, raises on
-    # an error status, and returns nil for unrelated frames (stale responses).
     def parse_response(frame, op)
-      return nil if frame.bytesize < 8 + STATUS_BYTES || frame.getbyte(0) != 0x01 ||
+      return nil if frame.bytesize < 8 + @status_bytes || frame.getbyte(0) != 0x01 ||
                     frame.getbyte(1) != op
 
       value  = frame.byteslice(4, 4).unpack1('V')
       body   = frame.byteslice(8..)
-      status = body.byteslice(-STATUS_BYTES, STATUS_BYTES)
+      status = body.byteslice(-@status_bytes, @status_bytes)
       if status.getbyte(0) != 0
         raise Error, format('command 0x%<op>02x failed (error 0x%<err>02x)',
                             op: op, err: status.getbyte(1))
       end
 
-      [value, body.byteslice(0...-STATUS_BYTES)]
+      [value, body.byteslice(0...-@status_bytes)]
     end
 
-    # Reads from the serial port until a complete 0xC0 ... 0xC0 frame is
-    # available or the deadline passes. Returns the decoded frame or nil.
     def read_frame(deadline)
       loop do
         start = @rxbuf.index("\xC0".b)
@@ -245,7 +297,7 @@ module Prremote
           if stop
             frame = @rxbuf.byteslice((start + 1)...stop)
             @rxbuf = @rxbuf.byteslice((stop + 1)..) || +''.b
-            next if frame.empty? # back-to-back C0 markers
+            next if frame.empty?
 
             return slip_decode(frame)
           end
@@ -257,8 +309,6 @@ module Prremote
       end
     end
 
-    # The ROM answers a successful SYNC with a burst of identical responses;
-    # swallow them so they are not mistaken for the next command's reply.
     def drain_responses
       deadline = Time.now + 0.3
       loop { break if read_frame(deadline).nil? }
@@ -268,12 +318,10 @@ module Prremote
       return if @fd.nil?
 
       io = IO.for_fd(@fd, autoclose: false)
-      buf = [0].pack('L')
-      io.ioctl(TIOCMGET, buf)
-      bits = buf.unpack1('L')
-      bits = dtr ? (bits | TIOCM_DTR) : (bits & ~TIOCM_DTR)
-      bits = rts ? (bits | TIOCM_RTS) : (bits & ~TIOCM_RTS)
-      io.ioctl(TIOCMSET, [bits].pack('L'))
+      io.ioctl(dtr ? TIOCMBIS : TIOCMBIC, [TIOCM_DTR].pack('L'))
+      io.ioctl(rts ? TIOCMBIS : TIOCMBIC, [TIOCM_RTS].pack('L'))
+    rescue StandardError
+      nil
     end
 
     def progress(done, total)

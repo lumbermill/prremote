@@ -13,11 +13,12 @@ led = GPIO.new(15, GPIO::OUT)
   sleep 0.5
 end
 
-# GPIO input: read a button connected between GPIO 2 (D0) and GND.
+# GPIO input: read a button connected between GPIO 2 (D2) and GND.
 # GPIO 2 has an internal pull-up; reads 1 when open, 0 when pressed.
 btn = GPIO.new(2, GPIO::IN_PULLUP)
 puts "Press the button (reading for 5 s)..."
 50.times do
+  puts btn.read
   puts "pressed" if btn.read.zero?
   sleep 0.1
 end

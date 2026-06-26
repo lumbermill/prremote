@@ -34,6 +34,25 @@ module Prremote
         str.gsub("\r\n", "\n").gsub("\r", '')
       end
 
+      # ESP32-C6's native USB Serial/JTAG drops bytes when a large payload is
+      # written in a single burst: its 256-byte driver RX ring buffer overflows
+      # faster than the firmware drains it byte-by-byte, and the controller does
+      # not apply USB backpressure. Writing in <=256-byte chunks with a short
+      # gap keeps the device from overrunning. The pacing is negligible on the
+      # baud-limited transports (Pico USB-CDC / ESP32 UART bridge), where a
+      # 256-byte chunk already takes ~22 ms to clock out at 115200 baud.
+      SERIAL_CHUNK_SIZE  = 256
+      SERIAL_CHUNK_DELAY = 0.004
+
+      def write_chunked(serial, data)
+        i = 0
+        while i < data.bytesize
+          serial.write(data.byteslice(i, SERIAL_CHUNK_SIZE))
+          i += SERIAL_CHUNK_SIZE
+          sleep SERIAL_CHUNK_DELAY if i < data.bytesize
+        end
+      end
+
       # Wraps serial.read so that a device disconnect (e.g. ENXIO on macOS when
       # the Pico resets) surfaces as a human-readable error instead of a bare errno name.
       def safe_read(serial, size)

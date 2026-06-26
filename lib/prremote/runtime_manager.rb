@@ -4,13 +4,14 @@ require 'fileutils'
 
 module Prremote
   module RuntimeManager
-    BOARDS = %w[pico picow esp32].freeze
+    BOARDS = %w[pico picow esp32 esp32c6].freeze
+    ESP32_BOARDS = %w[esp32 esp32c6].freeze
 
-    # Pico boards ship as UF2 (copied to the BOOTSEL drive); ESP32 ships as a
-    # single merged .bin (bootloader + partition table + app) flashed at 0x0
-    # with esptool.
+    # Pico boards ship as UF2 (copied to the BOOTSEL drive); ESP32 family ships
+    # as a single merged .bin (bootloader + partition table + app) flashed at
+    # 0x0 with esptool.
     def self.artifact_filename(version, board)
-      ext = board == 'esp32' ? 'bin' : 'uf2'
+      ext = ESP32_BOARDS.include?(board) ? 'bin' : 'uf2'
       "prremote-#{board}-runtime-#{version}.#{ext}"
     end
 

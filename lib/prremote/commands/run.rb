@@ -42,7 +42,7 @@ module Prremote
         serial = Serial.new(@port, @baud)
         wait_for_ready(serial)
 
-        serial.write(mrb_data)
+        write_chunked(serial, mrb_data)
         debug "sent #{mrb_data.bytesize} bytes (first 4: #{mrb_data[0, 4].inspect})"
 
         post_running = wait_for_running(serial)

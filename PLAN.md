@@ -57,6 +57,49 @@ BOOTSEL モードでは USB PID・ボリューム名・`INFO_UF2.TXT` がすべ�
 
 現実的には **RP2350 + ESP32 まで** が維持コストとのバランスが取れる上限と思われる。それ以上はエコシステムが分散してテスト・リリース管理の負担が重くなる。
 
+## XIAO ESP32C6 周辺ピンの実機検証
+
+**2026-06-27: esp32c6 ランタイム＋ `examples/xiao_c6/` を実装。GPIO（LED 出力 / ボタン入力）まで実機確認済み。**
+
+このコミットで修正済み:
+
+- コンソール（`runtime/esp32c6/main/platform_esp32c6.c`）: USB Serial/JTAG ドライバを install し
+  `usb_serial_jtag_vfs_use_driver()` でブロッキング read 化。デフォルトの非ドライバ VFS は getchar が
+  非ブロッキングで EOF を返し、`recv_exact` が 0xFF を書き込んで `.mrb` が壊れていた（`IREP_TT=...`）。
+  RX 改行変換も `ESP_LINE_ENDINGS_LF` で無効化。
+- CLI（`SerialHelpers#write_chunked`）: USB Serial/JTAG は 256B RX リングを一括バーストで溢れさせると
+  取りこぼす（USB バックプレッシャなし）。run / deploy は ≤256B チャンク + 4ms 間隔で送信。baud 律速の
+  Pico / ESP32(UART) では 256B が既に約 22ms かかるため実質ノーコスト。
+- `examples/xiao_c6/gpio.rb`: ボタンのパッド記載を D0 → **D2** に修正（実機で GPIO2=D2 を確認）。
+
+### 残タスク（要・実機 + I2C デバイス）
+
+XIAO のシルク（D0-D10）と GPIO 番号の対応を実機で確定し、全 examples のピンを揃える。
+Seeed XIAO ESP32C6 の想定対応（D2/GPIO15 以外は未検証）:
+
+| シルク | GPIO | 用途 |
+|---|---|---|
+| D0/A0 | GPIO0 | |
+| D1/A1 | GPIO1 | |
+| D2/A2 | GPIO2 | ボタン例で確認済み |
+| D3 | GPIO21 | |
+| D4/SDA | GPIO22 | I2C SDA |
+| D5/SCL | GPIO23 | I2C SCL |
+| D6/TX | GPIO16 | |
+| D7/RX | GPIO17 | |
+| D8/SCK | GPIO19 | |
+| D9/MISO | GPIO20 | |
+| D10/MOSI | GPIO18 | |
+| (LED) | GPIO15 | オンボード黄色 LED（確認済み） |
+
+- **`examples/xiao_c6/i2c_scan.rb`**: 現状 `sda_pin: 6, scl_pin: 7`（GPIO6/7）だが、XIAO のエッジパッドに
+  GPIO6/7 は出ていないと思われる。正しくは **D4=GPIO22 / D5=GPIO23** のはず。I2C デバイスを D4/D5 に
+  繋いでアドレスが出るか確認してから値とコメントを修正する。
+- ランタイムの C6 デフォルト I2C/SPI ピン（CHANGELOG: SDA=6/SCL=7, SCK=19/MOSI=18）も XIAO 実シルクに
+  合わせるか要検討（デフォルトを XIAO 基準にするか、チップ汎用のままにするか）。
+- **`wifi.rb` / `ntp_clock.rb`**: ピン依存はないが C6 での WiFi 接続・NTP 同期は実機未確認
+  （M5GO=ESP32 classic では確認済みだが C6 は別チップ）。
+
 ## M5Stack 対応
 
 **2026-06-11: M5GO（M5Stack Core 初代系）を検証実機として LCD まで実装済み。**

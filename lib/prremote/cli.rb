@@ -16,7 +16,7 @@ require_relative 'commands/watch'
 module Prremote
   class CLI < Thor
     class_option :port, aliases: '-p', desc: 'Serial port (default: auto-detect)'
-    class_option :baud, aliases: '-b', type: :numeric, default: 115_200, desc: 'Baud rate'
+    class_option :baud, type: :numeric, default: 115_200, desc: 'Baud rate'
 
     def self.exit_on_failure?
       true
@@ -24,17 +24,30 @@ module Prremote
 
     remove_command :tree
 
-    desc 'install', 'Flash prremote runtime firmware to Pico W, Pico, or ESP32'
+    desc 'install', 'Flash prremote runtime firmware to a supported board'
     option :version, type: :string, desc: "Firmware version to install (default: #{VERSION})"
-    option :board, type: :string, desc: 'Board type: picow, pico, or esp32 (default: picow)'
+    option :board, aliases: '-b', type: :string,
+                   desc: "Board type: #{RuntimeManager::BOARDS.join(', ')}"
+    option :verbose, aliases: '-V', type: :boolean, default: false,
+                     desc: 'Print step-by-step flash diagnostics'
     def install
       version = options[:version] || VERSION
-      board = options[:board] || 'picow'
-      unless RuntimeManager::BOARDS.include?(board)
-        raise Thor::Error, "Unknown board '#{board}'. Valid values: #{RuntimeManager::BOARDS.join(', ')}"
+      board = options[:board]
+
+      unless board
+        puts "Specify a board with --board / -b. Supported boards:"
+        RuntimeManager::BOARDS.each { |b| puts "  #{b}" }
+        puts
+        puts "Example: prremote install -b esp32c6"
+        return
       end
 
-      Commands::Install.new(version: version, board: board, port: options[:port]).call
+      unless RuntimeManager::BOARDS.include?(board)
+        raise Thor::Error, "Unknown board '#{board}'. Supported boards: #{RuntimeManager::BOARDS.join(', ')}"
+      end
+
+      Commands::Install.new(version: version, board: board, port: options[:port],
+                            verbose: options[:verbose]).call
     rescue StandardError => e
       raise Thor::Error, e.message
     end

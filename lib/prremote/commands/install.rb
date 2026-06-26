@@ -3,14 +3,15 @@ require 'fileutils'
 module Prremote
   module Commands
     class Install
-      def initialize(version: VERSION, board: 'picow', port: nil)
+      def initialize(version: VERSION, board: 'picow', port: nil, verbose: false)
         @version = version
-        @board = board
-        @port = port
+        @board   = board
+        @port    = port
+        @verbose = verbose
       end
 
       def call
-        return install_esp32 if @board == 'esp32'
+        return install_esp32 if RuntimeManager::ESP32_BOARDS.include?(@board)
 
         uf2_path = RuntimeManager.fetch(@version, @board)
 
@@ -42,7 +43,7 @@ module Prremote
         raise 'No serial device found. Connect the board or pass --port.' unless port
 
         puts "Flashing #{File.basename(image)} to #{port}..."
-        EspFlasher.flash(port: port, image_path: image)
+        EspFlasher.flash(port: port, image_path: image, board: @board, verbose: @verbose)
         puts "Done. Runtime #{@version} installed."
       end
 

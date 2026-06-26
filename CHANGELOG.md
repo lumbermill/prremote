@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CLI: `prremote install --verbose` / `-V` prints step-by-step flash diagnostics to aid debugging.
+
+- CLI: `prremote install` now supports `esp32c6` as a board target (`-b esp32c6` / `--board esp32c6`). Running `prremote install` without `--board` prints the list of supported boards instead of defaulting to picow. ESP32-C6 is flashed via the `esptool` CLI (delegated because the ROM returns error 0x38 on FLASH_BEGIN regardless of parameters — the Seeed factory firmware sets flash block-protection bits that only esptool's RAM stub can clear). Install esptool with `brew install esptool` or `pip3 install esptool`.
+
 - Runtime: `exit` method — stops the running script and returns the runtime to READY state (equivalent to the script finishing naturally; no reboot). Available on all platforms (Pico, ESP32, ESP32-C6). Optional argument accepted but ignored.
 
 - Runtime: `esp32c6` build target — supports ESP32-C6 (RISC-V) boards such as the Seeed Studio XIAO ESP32C6. Console via USB Serial/JTAG (no UART-to-USB bridge); no LCD; LEDC 6 channels; SPI2_HOST only; ADC on GPIO 0–6; default I2C SDA=6/SCL=7, SPI SCK=19/MOSI=18. `merge_bin` bootloader placed at `0x0` (RISC-V requirement, vs `0x1000` on Xtensa). Build: `rake build:esp32c6` (requires `./install.sh esp32c6` from ESP-IDF).
@@ -39,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sample (`ntp_clock.rb`): center date and time horizontally on the 320×240 LCD; add a Ruby gem logo (flat-top faceted diamond silhouette, red with white glint) in the bottom-right corner; move "JST (UTC+9)" label up and add "by prremote" footer.
 
 - Examples: `examples/esp32/` renamed to `examples/m5go/`; `_m5go` suffix dropped from all filenames (folder name now conveys the board context).
+
+### Fixed
+
+- Runtime (ESP32-C6): scripts failed to run with `Not support such type (IREP_TT=...)` / `ERROR exec`. The console used ESP-IDF's default non-driver USB Serial/JTAG VFS, whose `getchar()` is non-blocking and returns EOF for bytes not yet arrived; `recv_exact` stored those as 0xFF, desyncing the binary `.mrb` stream. `prr_console_init()` now installs the interrupt-driven driver and calls `usb_serial_jtag_vfs_use_driver()` so reads block until each byte is available (as the classic ESP32 build does for UART). RX line-ending conversion is also disabled (`ESP_LINE_ENDINGS_LF`) so a CR byte in the bytecode is not turned into LF. Installing the driver additionally makes the in-script Ctrl+C reset detection (`usb_serial_jtag_read_bytes`) functional.
+
+- CLI (ESP32-C6): even with blocking reads, the device then stalled (no `RUNNING`/`ERROR`) because the host wrote the whole `.mrb` in one burst, overflowing the USB Serial/JTAG 256-byte driver RX ring (the controller applies no USB backpressure, so the excess is dropped and `recv_exact` blocks forever). `run`/`deploy` now send the payload via `write_chunked` in ≤256-byte chunks with a 4 ms gap. The pacing is negligible on the baud-limited transports (Pico USB-CDC / ESP32 UART bridge), where a 256-byte chunk already takes ~22 ms to clock out at 115200 baud.
 
 ## [0.2.0] - 2026-06-12
 
