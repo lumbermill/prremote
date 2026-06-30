@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Build: bumping `VERSION` now re-runs CMake automatically. The pico and ESP-IDF `CMakeLists.txt` read `VERSION` at configure time (to name the artifact and embed `RUNTIME_VERSION`), but a change to `VERSION` alone did not invalidate the CMake cache — so `rake cache` rebuilt with the stale value, producing an old-named `.uf2` and a stale READY banner unless the build dir was deleted by hand. `VERSION` is now registered via `CMAKE_CONFIGURE_DEPENDS`, so all boards reconfigure on a version bump.
+
 ## [0.2.1] - 2026-06-30
 
 ### Added

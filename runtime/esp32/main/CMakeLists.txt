@@ -5,6 +5,11 @@ set(MRUBYC_DIR ${CMAKE_CURRENT_LIST_DIR}/../../mrubyc)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/../../../VERSION" RUNTIME_VERSION_RAW)
 string(STRIP "${RUNTIME_VERSION_RAW}" RUNTIME_VERSION)
+# Re-run CMake when VERSION changes so a bump re-embeds RUNTIME_VERSION instead
+# of reusing the configure-time cached value (otherwise the READY banner stays
+# stale until a manual idf.py reconfigure / fullclean).
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${CMAKE_CURRENT_LIST_DIR}/../../../VERSION")
 
 set(MRUBYC_SOURCES
   ${MRUBYC_DIR}/src/alloc.c

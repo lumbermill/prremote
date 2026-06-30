@@ -2,6 +2,11 @@ cmake_minimum_required(VERSION 3.12)
 
 file(READ "${CMAKE_SOURCE_DIR}/../VERSION" RUNTIME_VERSION_RAW)
 string(STRIP "${RUNTIME_VERSION_RAW}" RUNTIME_VERSION)
+# VERSION is read at configure time to name the build output and embed
+# RUNTIME_VERSION. Without this, bumping VERSION alone would not re-run CMake,
+# so `rake cache` would rebuild with the stale cached value (old uf2 name).
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+             "${CMAKE_SOURCE_DIR}/../VERSION")
 
 # Default board is pico_w; override with: cmake -B build/pico -DPICO_BOARD=pico
 set(PICO_BOARD pico_w CACHE STRING "Target board (pico, pico_w, pico2_w, etc.)")
