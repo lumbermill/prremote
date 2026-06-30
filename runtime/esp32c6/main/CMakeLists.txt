@@ -38,13 +38,15 @@ idf_component_register(
     platform_esp32c6.c
     bindings_esp32c6.c
     ${ESP32_MAIN}/bindings_wifi_esp32.c
+    ${ESP32_MAIN}/lcd_ili9342c.c
     ${MRUBYC_SOURCES}
   INCLUDE_DIRS
     .
+    ${ESP32_MAIN}
     ${PRR_SRC}
     ${MRUBYC_DIR}/src
     ${MRUBYC_DIR}/hal/esp32
-  REQUIRES driver vfs esp_timer esp_partition spi_flash esp_adc
+  REQUIRES driver vfs esp_timer esp_partition spi_flash esp_adc esp_lcd
            esp_wifi esp_netif nvs_flash esp_driver_usb_serial_jtag
 )
 
@@ -56,6 +58,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
   MRBC_SCHEDULER_EXIT=1
   MRBC_SUPPORT_OP_EXT
   HAS_WIFI=1
+  HAS_LCD=1
   RUNTIME_VERSION="${RUNTIME_VERSION}"
   MRB_BUFFER_SIZE_KB=64
 )
@@ -84,6 +87,15 @@ add_custom_command(
   COMMENT "Compiling hw_wrap.rb → hw_wrap.h"
 )
 add_custom_target(hw_wrap_h DEPENDS ${PRR_SRC}/hw_wrap.h)
+
+add_custom_command(
+  OUTPUT ${PRR_SRC}/lcd_wrap.h
+  COMMAND ${MRBC_EXECUTABLE} -B lcd_wrap -o ${PRR_SRC}/lcd_wrap.h
+          ${PRR_SRC}/lcd_wrap.rb
+  DEPENDS ${PRR_SRC}/lcd_wrap.rb
+  COMMENT "Compiling lcd_wrap.rb → lcd_wrap.h"
+)
+add_custom_target(lcd_wrap_h DEPENDS ${PRR_SRC}/lcd_wrap.h)
 
 add_custom_command(
   OUTPUT ${PRR_SRC}/cyw43_wrap.h
@@ -119,4 +131,4 @@ add_custom_command(
 )
 add_custom_target(mrubyc_mrblib DEPENDS ${MRUBYC_DIR}/src/mrblib.c)
 
-add_dependencies(${COMPONENT_LIB} hw_wrap_h cyw43_wrap_h time_wrap_h mrubyc_autogen mrubyc_mrblib)
+add_dependencies(${COMPONENT_LIB} hw_wrap_h lcd_wrap_h cyw43_wrap_h time_wrap_h mrubyc_autogen mrubyc_mrblib)

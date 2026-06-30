@@ -34,6 +34,12 @@ void prr_console_init(void)
    * payload is binary and a CR->LF translation would corrupt it. TX stays
    * CRLF, which the host's serial_helpers normalize() already handles. */
   usb_serial_jtag_driver_config_t cfg = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+  /* Enlarge the RX ring (default 256 B). The host paces .mrb writes in 256-byte
+   * chunks, but the controller applies no USB backpressure: if the firmware
+   * stalls briefly while draining byte-by-byte, the default ring overflows and
+   * silently drops bytes, which used to wedge recv_exact forever. A larger ring
+   * absorbs those transients; recv's timeout (see runtime.c) is the backstop. */
+  cfg.rx_buffer_size = 4096;
   usb_serial_jtag_driver_install(&cfg);
   usb_serial_jtag_vfs_use_driver();
   usb_serial_jtag_vfs_set_rx_line_endings(ESP_LINE_ENDINGS_LF);
@@ -47,6 +53,15 @@ void prr_console_init(void)
 bool prr_host_connected(void) { return true; }
 
 int prr_getchar(void) { return getchar(); }
+
+/* Reads straight from the USB Serial/JTAG driver buffer (the same buffer
+ * getchar() drains via the VFS) with a tick-based timeout; returns PRR_NO_CHAR
+ * on timeout. RX line-ending conversion is off, so the bytes match getchar()'s. */
+int prr_getchar_timeout(uint32_t ms)
+{
+  uint8_t c;
+  return usb_serial_jtag_read_bytes(&c, 1, pdMS_TO_TICKS(ms)) == 1 ? c : PRR_NO_CHAR;
+}
 
 void prr_flush(void)
 {

@@ -100,6 +100,47 @@ Seeed XIAO ESP32C6 の想定対応（D2/GPIO15 以外は未検証）:
 - **`wifi.rb` / `ntp_clock.rb`**: ピン依存はないが C6 での WiFi 接続・NTP 同期は実機未確認
   （M5GO=ESP32 classic では確認済みだが C6 は別チップ）。
 
+### SPI / PWM サンプルの追加（未実装）
+
+現状 `examples/xiao_c6/` は gpio / i2c_scan / ntp_clock / wifi のみ。`hw_wrap.rb` には PWM・SPI の
+API があるが C6 向けサンプルが無い。CLAUDE.md の方針（サンプルが唯一の参照、コピペで動く、配線情報を
+コメントに明記）に沿って追加する。いずれもピン確定（上記の D↔GPIO 表）後に実機検証する。
+
+- **`pwm.rb`（PWM）**: オンボード黄色 LED（GPIO15）を PWM で**ブリージング（明滅）**させる。外部配線不要で
+  コピペ即動作になるのが利点。`PWM.new(15, frequency: 1000, duty_u16: 0)` → `duty_u16=` を 0↔65535 で
+  ランプ。**注意**: LED は active-low なので duty と明るさが反転する（duty 大 = 暗い）。サンプル内で
+  反転を吸収するか、外部 LED（任意の D ピン + 抵抗）方式にするか実機で決める。C6 は LEDC 6ch まで。
+  余裕があれば外部 LED 版（明るさ）・サーボ版（50Hz / duty で角度）も検討。
+- **`spi_loopback.rb`（SPI 自己テスト）**: 外部デバイス不要で確認できるよう、**MOSI→MISO をジャンパで
+  直結**したループバックで `transfer` がエコーを返すことを確認する。C6 デフォルトは SPI2_HOST・
+  SCK=GPIO19(D8) / MOSI=GPIO18(D10) / MISO=GPIO20(D9)。配線: D10(MOSI)↔D9(MISO) を直結、SCK は未接続でよい。
+  `SPI.new(sck_pin: 19, copi_pin: 18, cipo_pin: 20)` → `transfer([0x01,0x02,0x03])` が同じ並びで返れば OK。
+  ピン番号は上記表の確定後に合わせる。実デバイス版（例: SPI フラッシュや SD の JEDEC ID 読み出し）は
+  デバイスが手に入ってから別途。
+
+### LCD（ILI9341 / MSP2807）— 実装済み・実機検証待ち
+
+**2026-06-30: ESP32 classic 用 LCD ドライバ（`esp32/main/lcd_ili9342c.c`）を C6 ビルドにも
+組み込み、`examples/xiao_c6/lcd_hello.rb` を追加。実機表示はまだ未確認。**
+
+- C ドライバは esp_lcd / spi_master / ledc のみ使用するため両 ESP32 ビルドで共有。
+  `LCD_HOST` だけターゲット別マクロ化（C6 は SPI3 が無いので `SPI2_HOST`）。
+- `LCD.new(invert:)` を追加。M5Stack ILI9342C は INVON（`true`, デフォルト）、
+  標準 ILI9341（MSP2807）は INVOFF（`false`）。
+- サンプルの配線（XIAO ←→ MSP2807）: SCK=D8/GPIO19, MOSI=D10/GPIO18, CS=D3/GPIO21,
+  DC=D1/GPIO1, RST=D0/GPIO0, BL=D6/GPIO16, MISO 未接続。CS/DC/RST/BL のピンは未検証。
+
+#### 実機検証で確定すべき点（焼いてから順に）
+
+1. **点灯**: `fill_rect(0,0,320,320,RED)` で全面赤になるか（配線・電源の一次確認）。
+2. **色反転**: ネガ表示なら `invert:` を切替（MSP2807 は `false` の想定）。
+3. **色順 RGB/BGR**: 赤が青に出るなら `madctl[]` の BGR ビット（0x08）を要調整。
+4. **向き・解像度**: ILI9341 はネイティブ 240×320 で、ILI9342C（320×240）と縦横が 90° 違う。
+   現状の `madctl[]` テーブルと `s_width/s_height` の swap 判定は ILI9342C 前提なので、ILI9341 を
+   ランドスケープに正しく収めると rotation の意味がずれる可能性がある。実機で「全面塗り＋文字正立」に
+   なる rotation を確定し、必要なら C 層にパネル種別フラグ（ネイティブ向き補正）を追加する。
+   サンプルは点灯確認を向き非依存にするため `fill_rect(0,0,320,320,...)` で全面塗りしている。
+
 ## M5Stack 対応
 
 **2026-06-11: M5GO（M5Stack Core 初代系）を検証実機として LCD まで実装済み。**

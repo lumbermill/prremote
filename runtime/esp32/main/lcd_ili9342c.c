@@ -6,13 +6,15 @@
  * through two small ping-pong DMA buffers, so a fill or a text cell is the
  * largest single allocation (2 KB).
  *
- * Init command sequence and the inversion-on quirk follow M5GFX's
- * Panel_ILI9342 (https://github.com/m5stack/M5GFX) — M5Stack panels show
- * inverted colors unless INVON is set.
+ * Init command sequence follows M5GFX's Panel_ILI9342
+ * (https://github.com/m5stack/M5GFX). M5Stack ILI9342C panels show inverted
+ * colors unless INVON is set; standard ILI9341 panels (e.g. MSP2807) want
+ * INVOFF. The _lcd_init `invert` argument selects between them.
  *
- * Note: the LCD claims SPI3_HOST (VSPI), which is also what SPI.new(unit: 1)
- * uses — on boards with the panel attached (M5GO), unit 1 is the panel bus
- * anyway, so use SPI.new(unit: 0) for external devices. */
+ * SPI host: SPI3_HOST (VSPI) on ESP32 classic, SPI2_HOST on ESP32-C6 (which
+ * has no SPI3). The panel bus therefore overlaps SPI.new(unit: 1) on classic
+ * and SPI.new(unit: 0) on C6 — use the other unit for external SPI devices
+ * while the LCD is active. */
 
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -25,14 +27,23 @@
 
 #include "font8x8.h"
 
-#define LCD_HOST       SPI3_HOST
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define LCD_HOST       SPI2_HOST   /* ESP32-C6: no SPI3_HOST, only SPI2 */
+#else
+#define LCD_HOST       SPI3_HOST   /* ESP32 classic (VSPI) */
+#endif
 #define LCD_PCLK_HZ    (40 * 1000 * 1000)
 #define LCD_MAX_CHUNK  4608   /* fits an 8x8 glyph at scale 6 (48*48*2) */
 #define LCD_MAX_SCALE  6
 
 /* Backlight PWM: top LEDC channel/timer to stay clear of the PWM class,
- * which allocates channels 0..7 and timers 0..3 from the bottom. */
+ * which allocates channels and timers from the bottom. ESP32-C6 has only
+ * 6 LEDC channels (0..5); the classic ESP32 has 8 (0..7). */
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define LCD_BL_CHANNEL LEDC_CHANNEL_5
+#else
 #define LCD_BL_CHANNEL LEDC_CHANNEL_7
+#endif
 #define LCD_BL_TIMER   LEDC_TIMER_3
 
 static esp_lcd_panel_io_handle_t s_io;
@@ -113,6 +124,8 @@ static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
   int dc       = GET_INT_ARG(6);
   int rst      = GET_INT_ARG(7);
   int bl       = GET_INT_ARG(8);
+  int invert   = GET_INT_ARG(9);
+  int madctl_arg = GET_INT_ARG(10);   /* <0: use the per-rotation table */
 
   if (s_io != NULL) {
     esp_lcd_panel_io_del(s_io);
@@ -162,8 +175,12 @@ static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 
   /* MADCTL per rotation; 0x08 = BGR, native M5Stack orientation
-   * (buttons at the bottom). Odd rotations swap width/height. */
+   * (buttons at the bottom). Odd rotations swap width/height. The table is
+   * tuned for the ILI9342C (native landscape); the madctl arg lets an
+   * ILI9341 (native portrait) override the byte while keeping these
+   * rotation-driven dimensions. */
   static const uint8_t madctl[4] = { 0x08, 0x68, 0xC8, 0xA8 };
+  uint8_t mad = (madctl_arg >= 0) ? (uint8_t)madctl_arg : madctl[rotation];
   bool swap = (rotation & 1) != 0;
   s_width  = swap ? 240 : 320;
   s_height = swap ? 320 : 240;
@@ -173,8 +190,10 @@ static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
   lcd_cmd(0x11, NULL, 0);                          /* SLPOUT */
   vTaskDelay(pdMS_TO_TICKS(120));
   lcd_cmd(0x3A, (uint8_t[]){0x55}, 1);             /* COLMOD: RGB565 */
-  lcd_cmd(0x36, &madctl[rotation], 1);             /* MADCTL */
-  lcd_cmd(0x21, NULL, 0);                          /* INVON (M5Stack quirk) */
+  lcd_cmd(0x36, &mad, 1);                          /* MADCTL */
+  /* ILI9342C (M5Stack) shows inverted colors unless INVON is set; standard
+   * ILI9341 panels (e.g. MSP2807) want INVOFF. Selected via the invert arg. */
+  lcd_cmd(invert ? 0x21 : 0x20, NULL, 0);          /* INVON / INVOFF */
   lcd_cmd(0x29, NULL, 0);                          /* DISPON */
   vTaskDelay(pdMS_TO_TICKS(20));
 

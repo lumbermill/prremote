@@ -29,6 +29,12 @@ void prr_console_init(void);
 bool prr_host_connected(void);
 /* Blocking read of one byte. */
 int  prr_getchar(void);
+/* Reads one byte, waiting at most `ms` milliseconds; returns the byte (0-255)
+ * or PRR_NO_CHAR if it did not arrive in time. Used by the payload-receive
+ * path so a dropped byte on a lossy transport (e.g. the ESP32-C6 USB
+ * Serial/JTAG) aborts the transfer and returns to READY, instead of blocking
+ * in getchar() forever and wedging the device until a physical reset. */
+int  prr_getchar_timeout(uint32_t ms);
 void prr_flush(void);
 
 /* ── persistent script storage ───────────────────────────────────────────── */

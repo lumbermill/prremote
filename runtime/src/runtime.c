@@ -47,9 +47,24 @@ void runtime_define_methods(void);
 
 /* ── recv helpers ────────────────────────────────────────────────────────── */
 
-static void recv_exact(uint8_t *buf, uint32_t n)
+/* Per-byte receive timeout. The host streams a payload continuously (256-byte
+ * chunks a few ms apart), so a multi-second gap means bytes were lost in
+ * transit; aborting then lets the runtime fall back to READY and recover on the
+ * next command instead of blocking in getchar() forever. */
+#ifndef RECV_TIMEOUT_MS
+#define RECV_TIMEOUT_MS 2000
+#endif
+
+/* Receives exactly n bytes. Returns false if a byte fails to arrive within
+ * RECV_TIMEOUT_MS (a dropped byte), so callers can return to the READY loop. */
+static bool recv_exact(uint8_t *buf, uint32_t n)
 {
-  for (uint32_t i = 0; i < n; i++) buf[i] = (uint8_t)prr_getchar();
+  for (uint32_t i = 0; i < n; i++) {
+    int c = prr_getchar_timeout(RECV_TIMEOUT_MS);
+    if (c == PRR_NO_CHAR) return false;
+    buf[i] = (uint8_t)c;
+  }
+  return true;
 }
 
 /* Receives a full .mrb into buf after the "RITE" magic has been detected.
@@ -59,7 +74,11 @@ static bool recv_mrb(uint8_t *buf, uint32_t buf_size, uint32_t *out_size)
 {
   uint8_t header[20];
   memcpy(header, "RITE", 4);
-  recv_exact(header + 4, 16);
+  if (!recv_exact(header + 4, 16)) {
+    printf("ERROR recv\n");
+    prr_flush();
+    return false;
+  }
 
   uint32_t total = ((uint32_t)header[8]  << 24) | ((uint32_t)header[9]  << 16)
                  | ((uint32_t)header[10] <<  8) |  (uint32_t)header[11];
@@ -71,7 +90,11 @@ static bool recv_mrb(uint8_t *buf, uint32_t buf_size, uint32_t *out_size)
   }
 
   memcpy(buf, header, 20);
-  recv_exact(buf + 20, total - 20);
+  if (!recv_exact(buf + 20, total - 20)) {
+    printf("ERROR recv\n");
+    prr_flush();
+    return false;
+  }
   *out_size = total;
   return true;
 }
@@ -183,9 +206,14 @@ int prr_main(void)
         uint8_t name_len_byte = (uint8_t)prr_getchar();
         if (name_len_byte > 240) name_len_byte = 240;
         uint8_t names_buf[241] = {0};
-        if (name_len_byte > 0) recv_exact(names_buf, name_len_byte);
         uint8_t ts_bytes[4];
-        recv_exact(ts_bytes, 4);
+        if ((name_len_byte > 0 && !recv_exact(names_buf, name_len_byte)) ||
+            !recv_exact(ts_bytes, 4)) {
+          printf("ERROR recv\n");
+          prr_flush();
+          restart = true;
+          break;
+        }
         uint32_t ts = ((uint32_t)ts_bytes[0] << 24) | ((uint32_t)ts_bytes[1] << 16)
                     | ((uint32_t)ts_bytes[2] <<  8) |  (uint32_t)ts_bytes[3];
 

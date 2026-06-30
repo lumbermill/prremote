@@ -39,6 +39,15 @@ bool prr_host_connected(void) { return true; }
 
 int prr_getchar(void) { return getchar(); }
 
+/* Reads straight from the UART driver buffer (the same buffer getchar() drains
+ * via the VFS) with a tick-based timeout; returns PRR_NO_CHAR on timeout. RX
+ * line-ending conversion is off, so the bytes are identical to getchar()'s. */
+int prr_getchar_timeout(uint32_t ms)
+{
+  uint8_t c;
+  return uart_read_bytes(PRR_UART, &c, 1, pdMS_TO_TICKS(ms)) == 1 ? c : PRR_NO_CHAR;
+}
+
 void prr_flush(void)
 {
   fflush(stdout);

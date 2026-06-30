@@ -9,7 +9,9 @@
  *   I2C     — XIAO default pins: SDA=6 (D4), SCL=7 (D5).
  *   SPI     — ESP32-C6 only has SPI2_HOST; SPI3_HOST does not exist.
  *             XIAO default pins: SCK=19 (D8), MOSI=18 (D10).
- *   LCD     — No LCD on XIAO ESP32C6; HAS_LCD is not defined. */
+ *   LCD     — HAS_LCD is defined; the shared ILI9342C/ILI9341 driver
+ *             (esp32/main/lcd_ili9342c.c) is compiled in, with LCD_HOST
+ *             switched to SPI2_HOST. register_lcd_methods() is called below. */
 
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -490,6 +492,9 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 #ifdef HAS_WIFI
 void register_wifi_methods(void);
 #endif
+#ifdef HAS_LCD
+void register_lcd_methods(void);
+#endif
 
 void runtime_define_methods(void)
 {
@@ -519,5 +524,8 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_spi_transfer",     c_spi_transfer);
 #ifdef HAS_WIFI
   register_wifi_methods();
+#endif
+#ifdef HAS_LCD
+  register_lcd_methods();
 #endif
 }

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-30
+
 ### Added
 
 - CLI: `prremote install --verbose` / `-V` prints step-by-step flash diagnostics to aid debugging.
@@ -15,9 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Runtime: `exit` method — stops the running script and returns the runtime to READY state (equivalent to the script finishing naturally; no reboot). Available on all platforms (Pico, ESP32, ESP32-C6). Optional argument accepted but ignored.
 
-- Runtime: `esp32c6` build target — supports ESP32-C6 (RISC-V) boards such as the Seeed Studio XIAO ESP32C6. Console via USB Serial/JTAG (no UART-to-USB bridge); no LCD; LEDC 6 channels; SPI2_HOST only; ADC on GPIO 0–6; default I2C SDA=6/SCL=7, SPI SCK=19/MOSI=18. `merge_bin` bootloader placed at `0x0` (RISC-V requirement, vs `0x1000` on Xtensa). Build: `rake build:esp32c6` (requires `./install.sh esp32c6` from ESP-IDF).
+- Runtime: `esp32c6` build target — supports ESP32-C6 (RISC-V) boards such as the Seeed Studio XIAO ESP32C6. Console via USB Serial/JTAG (no UART-to-USB bridge); LEDC 6 channels; SPI2_HOST only; ADC on GPIO 0–6; default I2C SDA=6/SCL=7, SPI SCK=19/MOSI=18. `merge_bin` bootloader placed at `0x0` (RISC-V requirement, vs `0x1000` on Xtensa). Build: `rake build:esp32c6` (requires `./install.sh esp32c6` from ESP-IDF).
 
-- Examples (XIAO ESP32C6): `examples/xiao_c6/` — four examples for the Seeed Studio XIAO ESP32C6: `gpio.rb` (onboard LED GPIO 15 active-low, button input on GPIO 2), `wifi.rb`, `i2c_scan.rb` (SDA=GPIO 6 / SCL=GPIO 7), `ntp_clock.rb` (NTP-synced JST clock printed to serial; no LCD on XIAO).
+- Runtime (ESP32-C6): LCD support — the ESP32 ILI9342C/ILI9341 SPI driver (`lcd_ili9342c.c`) is now compiled into the ESP32-C6 build as well, shared verbatim with the classic ESP32 build (`LCD_HOST` switches to `SPI2_HOST` on C6, which has no SPI3). The `LCD` class (`fill`/`fill_rect`/`pixel`/`text`/`brightness=`) now works on XIAO ESP32C6.
+
+- Runtime (ESP32): `LCD.new(invert:)` — selects INVON (`true`, default; M5Stack ILI9342C panels) vs INVOFF (`false`; standard ILI9341 panels such as MSP2807), so one driver serves both panel families.
+
+- Runtime (ESP32): `LCD.new(madctl:)` — overrides the per-rotation MADCTL byte (memory access control). The built-in table is tuned for the ILI9342C (native landscape); portrait-native ILI9341 panels need the MV bit set for landscape. Verified on hardware: the MSP2807 ILI9341 on a XIAO ESP32C6 shows an upright, non-mirrored 320×240 landscape with `madctl: 0xE8` (and `0x28` for an upside-down 180° mount). `examples/xiao_c6/lcd_hello.rb` now passes `madctl: 0xE8`.
+
+- Examples (XIAO ESP32C6): `examples/xiao_c6/` — five examples for the Seeed Studio XIAO ESP32C6: `gpio.rb` (onboard LED GPIO 15 active-low, button input on GPIO 2), `wifi.rb`, `i2c_scan.rb` (SDA=GPIO 6 / SCL=GPIO 7), `ntp_clock.rb` (NTP-synced JST clock printed to serial), `lcd_hello.rb` (ILI9341 2.8" SPI TFT / MSP2807: solid fill, rectangles, 8x8 text; SCK=GPIO 19 / MOSI=GPIO 18 / CS=GPIO 21 / DC=GPIO 1 / RST=GPIO 0 / BL=GPIO 16).
 
 - Tool: `tools/img2rle.rb` — converts an image (JPEG, PNG, etc.) to RLE-encoded RGB565 Ruby source via ImageMagick; outputs a packed binary string constant (~4 bytes/segment) suitable for `fill_rect`-based playback on the device LCD. Run `ruby tools/img2rle.rb INPUT [OUTPUT] [options]`.
 
@@ -38,8 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `whack_a_mole.rb` — Whack-a-Mole game: moles appear in left/center/right columns, press A/B/C to whack; 20 rounds, score on LCD.
   - `imu_level.rb` — Digital spirit level using the built-in MPU6886 IMU (I2C 0x68); a bubble moves with tilt, turns green when level.
 
-### Changed
-
 - Sample (`ntp_clock.rb`): center date and time horizontally on the 320×240 LCD; add a Ruby gem logo (flat-top faceted diamond silhouette, red with white glint) in the bottom-right corner; move "JST (UTC+9)" label up and add "by prremote" footer.
 
 - Examples: `examples/esp32/` renamed to `examples/m5go/`; `_m5go` suffix dropped from all filenames (folder name now conveys the board context).
@@ -49,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime (ESP32-C6): scripts failed to run with `Not support such type (IREP_TT=...)` / `ERROR exec`. The console used ESP-IDF's default non-driver USB Serial/JTAG VFS, whose `getchar()` is non-blocking and returns EOF for bytes not yet arrived; `recv_exact` stored those as 0xFF, desyncing the binary `.mrb` stream. `prr_console_init()` now installs the interrupt-driven driver and calls `usb_serial_jtag_vfs_use_driver()` so reads block until each byte is available (as the classic ESP32 build does for UART). RX line-ending conversion is also disabled (`ESP_LINE_ENDINGS_LF`) so a CR byte in the bytecode is not turned into LF. Installing the driver additionally makes the in-script Ctrl+C reset detection (`usb_serial_jtag_read_bytes`) functional.
 
 - CLI (ESP32-C6): even with blocking reads, the device then stalled (no `RUNNING`/`ERROR`) because the host wrote the whole `.mrb` in one burst, overflowing the USB Serial/JTAG 256-byte driver RX ring (the controller applies no USB backpressure, so the excess is dropped and `recv_exact` blocks forever). `run`/`deploy` now send the payload via `write_chunked` in ≤256-byte chunks with a 4 ms gap. The pacing is negligible on the baud-limited transports (Pico USB-CDC / ESP32 UART bridge), where a 256-byte chunk already takes ~22 ms to clock out at 115200 baud.
+
+- Runtime (ESP32-C6): intermittent hard wedge — `run` occasionally timed out with `Timeout waiting for device to start execution`, and once wedged the device stopped answering anything (even `version`) until a physical reset. Under sustained back-to-back receives the USB Serial/JTAG still drops a byte every so often despite the host-side chunking; `recv_exact` then blocked in `getchar()` forever waiting for a byte that had already passed, and because that loop never inspects the stream, the `0x03` sent by `reset`/`version` could not break it out. Two-part fix: (1) the payload receive path now reads with a 2 s per-byte timeout (new `prr_getchar_timeout`, implemented on all platforms) — a dropped byte now aborts the transfer with `ERROR recv` and returns to READY, so the next `run` recovers without a physical reset; (2) the C6 USB Serial/JTAG RX ring is enlarged from 256 B to 4096 B to absorb drain-stall transients and make the drop far rarer in the first place.
 
 ## [0.2.0] - 2026-06-12
 

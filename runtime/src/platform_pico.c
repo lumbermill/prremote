@@ -33,6 +33,8 @@ _Static_assert(PRR_STORAGE_HEADER_SIZE == FLASH_PAGE_SIZE,
 void prr_console_init(void) { stdio_init_all(); }
 bool prr_host_connected(void) { return stdio_usb_connected(); }
 int  prr_getchar(void) { return getchar(); }
+/* getchar_timeout_us returns PICO_ERROR_TIMEOUT (-1 == PRR_NO_CHAR) on timeout. */
+int  prr_getchar_timeout(uint32_t ms) { return getchar_timeout_us((uint32_t)ms * 1000); }
 void prr_flush(void) { stdio_flush(); }
 void prr_sleep_ms(uint32_t ms) { sleep_ms(ms); }
 
