@@ -1,0 +1,57 @@
+name: build-pico2
+
+# Builds the prremote runtime firmware for the Raspberry Pi Pico 2 (RP2350).
+# RP2350 support needs pico-sdk >= 2.0 (the bundled submodule is 2.2.0) and the
+# CLOCKS_SLEEP_EN1 macro remap in runtime/CMakeLists.txt; no submodule patch.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [pico2-support]
+
+jobs:
+  firmware:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Init submodules (mrubyc + pico-sdk, recursive)
+        run: git submodule update --init --recursive runtime/mrubyc runtime/pico-sdk
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git python3 pkg-config libusb-1.0-0-dev
+
+      - name: Install ARM GNU toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+
+      - name: Build mruby 4.0.0 host (provides mrbc)
+        run: |
+          git clone --depth 1 --branch 4.0.0 https://github.com/mruby/mruby.git "$HOME/mruby"
+          cd "$HOME/mruby" && rake -j$(nproc)
+          echo "MRBC=$HOME/mruby/build/host/bin/mrbc" >> "$GITHUB_ENV"
+          echo "$HOME/mruby/build/host/bin" >> "$GITHUB_PATH"
+
+      - name: Build pico2 UF2
+        working-directory: runtime
+        env:
+          PICO_SDK_PATH: ${{ github.workspace }}/runtime/pico-sdk
+          PICOTOOL_FETCH_FROM_GIT_PATH: ${{ github.workspace }}/.picotool
+        run: rake build:pico2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prremote-pico2-runtime
+          path: runtime/build/pico2/*.uf2
+          if-no-files-found: error

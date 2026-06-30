@@ -11,7 +11,8 @@ IDF_PATH = ENV['IDF_PATH'] || File.expand_path('~/sources/esp/esp-idf')
 # esp32 is built by ESP-IDF, see build:esp32)
 BOARDS = {
   'picow' => 'pico_w',
-  'pico'  => 'pico'
+  'pico'  => 'pico',
+  'pico2' => 'pico2'
 }.freeze
 
 # gem board label => built artifact path (all boards, for cache/release)

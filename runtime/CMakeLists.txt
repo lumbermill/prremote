@@ -38,6 +38,15 @@ set_source_files_properties(mrubyc/hal/rp2040/hal.c
   PROPERTIES COMPILE_OPTIONS "-Wno-implicit-function-declaration"
 )
 
+# RP2350 (pico2 / pico2_w) renamed several CLOCKS_SLEEP_EN1 bit macros relative
+# to RP2040. The mrubyc RP2040 HAL references the old names in mrbc_hal_init(),
+# so remap the two it uses via the preprocessor — no submodule patch required.
+if(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
+  set_source_files_properties(mrubyc/hal/rp2040/hal.c PROPERTIES COMPILE_DEFINITIONS
+    "CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS=CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS;CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS=CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS"
+  )
+endif()
+
 set(MRUBYC_SOURCES
   mrubyc/src/alloc.c
   mrubyc/src/c_array.c
