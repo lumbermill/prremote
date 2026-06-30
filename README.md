@@ -18,9 +18,9 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 
 - Ruby 3.4 or later
 - Supported boards:
-  - Raspberry Pi Pico W / Pico
-  - ESP32 (classic) — e.g. M5GO / M5Stack Core gen1, generic dev boards
-  - ESP32-C6 (RISC-V) — e.g. Seeed Studio XIAO ESP32C6
+  - [Raspberry Pi Pico W](https://www.raspberrypi.com/products/raspberry-pi-pico-w/) / [Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
+  - ESP32 (classic) — e.g. [M5GO / M5Stack Core gen1](https://docs.m5stack.com/en/core/m5go), generic [ESP32](https://www.espressif.com/en/products/socs/esp32) dev boards
+  - ESP32-C6 (RISC-V) — e.g. [Seeed Studio XIAO ESP32C6](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/)
 - `mrbc` (mruby 4.x) for `run`, `deploy`, and `eval`
   - macOS: `brew install mruby`
   - Linux: build from source — [github.com/mruby/mruby/releases](https://github.com/mruby/mruby/releases)
@@ -74,7 +74,11 @@ The firmware is downloaded from GitHub Releases on first use and cached in `~/.p
 
 Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
 
-ESP32 / ESP32-C6 boards: no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5). Reflashing the runtime does not erase a deployed script.
+ESP32 (classic): no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5).
+
+ESP32-C6: flashing is delegated to [esptool](https://docs.espressif.com/projects/esptool/en/latest/), because the C6 boot ROM rejects the direct write the classic ESP32 accepts. Install it first (`brew install esptool`, or `pip3 install esptool`), and put the board into bootloader mode when prompted — on the XIAO ESP32C6, hold **BOOT**, press **RST**, then release both.
+
+Reflashing the runtime does not erase a deployed script on either chip.
 
 ---
 
@@ -285,7 +289,3 @@ bundle exec rake test
 - [mruby/c](https://github.com/mrubyc/mrubyc) — Lightweight mruby implementation used in the runtime
 - [picotool](https://github.com/raspberrypi/picotool) — Official Raspberry Pi tool for inspecting and managing Pico devices; useful for checking what's on flash or force-rebooting outside of prremote
 - [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) — MicroPython equivalent (inspiration)
-
-https://wiki.seeedstudio.com/ja/xiao_esp32c6_getting_started/
-
-brew install esptool
