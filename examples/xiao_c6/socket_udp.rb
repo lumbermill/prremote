@@ -18,7 +18,7 @@
 
 WIFI_SSID = "360-raspi"
 WIFI_PASS = "raspberry"
-HOST      = "raspi.local"   # a .local mDNS name or a plain IP (e.g. "10.42.0.1")
+HOST      = "raspi.local" # a .local mDNS name or a plain IP (e.g. "10.42.0.1")
 PORT      = 2000
 
 WiFi.init
@@ -30,10 +30,10 @@ begin
 
   sock = UDPSocket.new
   puts "Resolving + connecting UDP to #{HOST}:#{PORT}..."
-  sock.connect(HOST, PORT)              # getaddrinfo here (handles .local via mDNS)
+  sock.connect(HOST, PORT) # getaddrinfo here (handles .local via mDNS)
   puts "UDP connected."
 
-  5.times do |i|
+  5.times do |_i|
     msg = "100,200"
     sent = sock.send(msg, 0)
     puts "-> sent #{sent} bytes: #{msg}"
@@ -57,13 +57,12 @@ begin
 
   sock.close
   puts "done."
-
 rescue WiFi::ConnectError => e
   puts "Auth failed: #{e.message}"
 rescue WiFi::ConnectTimeout => e
   puts "Timed out: #{e.message}"
 rescue SocketError => e
-  puts "Socket error: #{e.message}"   # e.g. mDNS/DNS resolution failed
+  puts "Socket error: #{e.message}" # e.g. mDNS/DNS resolution failed
 rescue StandardError => e
   puts "Error: #{e.class} #{e.message}"
 ensure
