@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: `docs/SUPPORT.md` — board × feature support matrix (pico / picow / pico2 / esp32 / esp32c6) that doubles as a post-release manual verification checklist for physical devices.
 - Development: `rake smoke[BOARD]` — semi-automated smoke test that runs the device over serial and asserts output for the checkable steps (version banner, `eval`, WiFi/IP), and prints the visual checks (LCD / LED / buttons) as a manual checklist. Configurable via `PORT` / `BAUD` / `SMOKE_WIFI` / `SMOKE_NTP` / `PRREMOTE`. Mirrors `docs/SUPPORT.md`.
 
+### Fixed
+
+- Runtime (**esp32c6**): PWM no longer breaks (LED stuck on, `E ledc: ledc_set_timer_div(...): timer clock conflict, already is 9 but attempt to 4`). All ESP32-C6 LEDC low-speed timers share **one** global clock source, but the PWM class and the LCD backlight chose different ones via `LEDC_AUTO_CLK`: the backlight (5 kHz/8-bit) resolved to XTAL (clock id 9) while PWM at 1 kHz/16-bit needs PLL_F80M (id 4). Because the firmware keeps LEDC state across `prremote run` invocations (a run never resets the chip), once an LCD example had run, every later PWM script hit `ledc_timer_config()` "timer clock conflict" — the timer kept its stale resolution while `res_bits` said otherwise, so `duty_u16=` wrote a saturated value. Both the PWM binding and the LCD backlight are now pinned to `PLL_F80M` (matching PWM's existing 80 MHz resolution budget) so the clock choice is always identical, and `_pwm_set_freq` now raises instead of silently continuing if the timer config fails. Classic ESP32 (no PLL_DIV clock, proven working on M5GO) is left on `LEDC_AUTO_CLK`.
+
 ### Changed
 
 - Runtime (**breaking**): the WiFi API moved from `CYW43` to a chip-neutral `WiFi` module, and the sub-module nesting was flattened. `CYW43` was the part number of the Pico W's Infineon radio, but the same API also drives ESP32's built-in WiFi — so the chip name was misleading on every non-Pico-W board. There is no compatibility alias; user scripts must be updated:

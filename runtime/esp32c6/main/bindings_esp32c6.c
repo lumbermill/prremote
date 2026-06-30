@@ -218,20 +218,32 @@ static void c_pwm_set_freq(mrbc_vm *vm, mrbc_value v[], int argc)
   int slot = pwm_slot(pin, false);
   if (slot < 0 || freq <= 0) return;
 
-  /* Maximize duty resolution for the requested frequency (APB = 80 MHz). */
+  /* Maximize duty resolution for the requested frequency.  The source clock is
+   * pinned to PLL_F80M (80 MHz) below, so budget the resolution against 80 MHz. */
   int bits = 0;
   while (bits < 16 && ((uint32_t)freq << (bits + 1)) <= 80000000u) bits++;
   if (bits < 1) bits = 1;
-  s_pwm[slot].res_bits = bits;
 
+  /* On the ESP32-C6 every LEDC low-speed timer shares ONE global clock source.
+   * LEDC_AUTO_CLK derives that source from freq+resolution, so two timers (or
+   * two `prremote run` invocations, since the firmware keeps LEDC state between
+   * runs) that resolve to different clocks make ledc_timer_config() fail with
+   * "timer clock conflict"; the timer then keeps its stale resolution while our
+   * res_bits says otherwise, so duty_u16= writes a mis-scaled (saturated) value
+   * and the LED is stuck on.  Pin every timer to PLL_F80M so the source clock
+   * is always identical and no conflict can arise. */
   ledc_timer_config_t tcfg = {
     .speed_mode      = LEDC_LOW_SPEED_MODE,
     .timer_num       = slot % LEDC_TIMER_MAX,
     .duty_resolution = bits,
     .freq_hz         = freq,
-    .clk_cfg         = LEDC_AUTO_CLK,
+    .clk_cfg         = LEDC_USE_PLL_DIV_CLK,
   };
-  ledc_timer_config(&tcfg);
+  if (ledc_timer_config(&tcfg) != ESP_OK) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "PWM timer config failed");
+    return;
+  }
+  s_pwm[slot].res_bits = bits;
 
   ledc_channel_config_t ccfg = {
     .gpio_num   = pin,

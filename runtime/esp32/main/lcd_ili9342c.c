@@ -41,8 +41,18 @@
  * 6 LEDC channels (0..5); the classic ESP32 has 8 (0..7). */
 #if defined(CONFIG_IDF_TARGET_ESP32C6)
 #define LCD_BL_CHANNEL LEDC_CHANNEL_5
+/* All ESP32-C6 LEDC low-speed timers share ONE global clock source, so the
+ * backlight must use the same clock the PWM class pins (PLL_F80M).  Leaving it
+ * at LEDC_AUTO_CLK makes the driver pick XTAL here (first clock that fits a
+ * 5 kHz/8-bit timer), which then collides with PWM's PLL_F80M and makes
+ * ledc_timer_config() fail with "timer clock conflict".  Firmware keeps LEDC
+ * state across `prremote run` invocations, so the order the two are first used
+ * decides who wins — pinning both to PLL_F80M removes the conflict entirely.
+ * Classic ESP32 (no PLL_DIV clock, proven working) stays on AUTO. */
+#define LCD_BL_CLK     LEDC_USE_PLL_DIV_CLK
 #else
 #define LCD_BL_CHANNEL LEDC_CHANNEL_7
+#define LCD_BL_CLK     LEDC_AUTO_CLK
 #endif
 #define LCD_BL_TIMER   LEDC_TIMER_3
 
@@ -86,7 +96,7 @@ static void lcd_backlight_init(int bl_pin)
     .timer_num       = LCD_BL_TIMER,
     .duty_resolution = LEDC_TIMER_8_BIT,
     .freq_hz         = 5000,
-    .clk_cfg         = LEDC_AUTO_CLK,
+    .clk_cfg         = LCD_BL_CLK,
   };
   ledc_timer_config(&tcfg);
 
