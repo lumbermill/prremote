@@ -31,27 +31,28 @@ BOOTSEL モードでは USB PID・ボリューム名・`INFO_UF2.TXT` がすべ�
 
 ## ESP32 対応
 
-**2026-06-11: ESP32 classic 対応を実装済み**（WiFi を除く）。構成:
+**2026-06-11: ESP32 classic 対応を実装済み**（WiFi / SNTP は 2026-06-12 に追加）。構成:
 
 - `runtime/src/prr_platform.h` — プラットフォーム抽象。`runtime.c`（プロトコル本体）は中立化し、`platform_pico.c` / `runtime/esp32/main/platform_esp32.c` がボード固有部を実装
 - `runtime/esp32/` — ESP-IDF v5.3 プロジェクト（UART0 コンソール、RX の行末変換無効化でバイナリ安全）。ESP-IDF は vendored しない（~/sources/esp/esp-idf、IDF_PATH で変更可）
 - deploy 保存先はカスタム data パーティション `prremote`（64KB、PRRD ヘッダは Pico とバイト互換 → gem の deploy/ls/undeploy 無修正）
 - `bindings_esp32.c` — GPIO/ADC(oneshot)/PWM(LEDC)/I2C(i2c_master)/SPI(spi_master)。`hw_wrap.rb` は両ビルド共有（ADC の pin→ch 変換は C 層へ、unit シンボル汎用化）
 - Ctrl+C リセット: esp_timer 監視 + `esp_restart()`、`ESP_RST_SW` で自動実行抑止。ポート open 時の DTR/RTS リセットは「自動実行→0x03→READY」に収束
-- gem: `--board esp32`（esptool で merged bin を 0x0 に書き込み）、detector に CP210x/CH910x VID 追加
+- gem: `--board esp32`（pure-Ruby の `EspFlasher` で merged bin を 0x0 に書き込み、esptool/Python 不要）、detector に CP210x/CH910x VID 追加
 - ビルド: `cd runtime && rake build:esp32`、`rake cache` / `rake release` は 3 ボード対応
 
 ### 残タスク
 
-- **WiFi / SNTP**: esp_wifi + picoruby-socket `ports/esp32/`（取り込みは rp2040 と同じ `-include picoruby_compat.h` 方式）。Ruby API は汎用 `WiFi` モジュール新設、picow は CYW43 互換を残して委譲。SNTP は esp_sntp で `_time_*` を別実装
 - **ESP32-S3 / C3**: sdkconfig の target 切り替え + ピンデフォルト調整でいけるはず（ネイティブ USB CDC あり）。需要を見て判断
+
+> **WiFi / SNTP は 2026-06-12 に実装済み**（`bindings_wifi_esp32.c` + esp_sntp）。Ruby API は picow と `cyw43_wrap.rb`（`module WiFi`）・`time_wrap.rb` を共有し、CYW43 互換で委譲。
 
 ### 対応ボード数の現実的な上限
 
 | ターゲット | 追加コスト | 判断 |
 |---|---|---|
-| RP2350（Pico 2 / Pico 2W） | 極小（同じ Pico SDK、CMake ターゲット追加のみ） | やる価値あり |
-| ESP32 | 約 2 週間 | ユーザー数が多く費用対効果あり |
+| RP2350（Pico 2） | 極小（同じ Pico SDK、CMake ターゲット追加のみ） | ✅ 実装済み（`pico2`, 2026-06-26） |
+| ESP32 / ESP32-C6 | 約 2 週間 | ✅ 実装済み（WiFi / LCD 含む） |
 | STM32 | 約 2〜3 週間（HAL 細分化が多い） | 優先度低 |
 | nRF52 / Zephyr | 約 2 週間（mruby/c に Zephyr HAL あり） | 優先度低 |
 
@@ -118,28 +119,22 @@ API があるが C6 向けサンプルが無い。CLAUDE.md の方針（サン�
   ピン番号は上記表の確定後に合わせる。実デバイス版（例: SPI フラッシュや SD の JEDEC ID 読み出し）は
   デバイスが手に入ってから別途。
 
-### LCD（ILI9341 / MSP2807）— 実装済み・実機検証待ち
+### LCD（ILI9341 / MSP2807）— 実装・実機確認済み（2026-06-30）
 
-**2026-06-30: ESP32 classic 用 LCD ドライバ（`esp32/main/lcd_ili9342c.c`）を C6 ビルドにも
-組み込み、`examples/xiao_c6/lcd_hello.rb` を追加。実機表示はまだ未確認。**
+ESP32 classic 用 LCD ドライバ（`esp32/main/lcd_ili9342c.c`）を C6 ビルドにも組み込み、
+`examples/xiao_c6/lcd_hello.rb` を追加。**XIAO ESP32C6 + MSP2807（ILI9341）で実機表示を確認済み。**
 
 - C ドライバは esp_lcd / spi_master / ledc のみ使用するため両 ESP32 ビルドで共有。
   `LCD_HOST` だけターゲット別マクロ化（C6 は SPI3 が無いので `SPI2_HOST`）。
-- `LCD.new(invert:)` を追加。M5Stack ILI9342C は INVON（`true`, デフォルト）、
-  標準 ILI9341（MSP2807）は INVOFF（`false`）。
-- サンプルの配線（XIAO ←→ MSP2807）: SCK=D8/GPIO19, MOSI=D10/GPIO18, CS=D3/GPIO21,
-  DC=D1/GPIO1, RST=D0/GPIO0, BL=D6/GPIO16, MISO 未接続。CS/DC/RST/BL のピンは未検証。
+- `LCD.new(invert:)`: M5Stack ILI9342C は INVON（`true`, デフォルト）、標準 ILI9341（MSP2807）は INVOFF（`false`）。
+- `LCD.new(madctl:)`: 内蔵 MADCTL テーブルは ILI9342C（ネイティブ landscape）前提。ネイティブ portrait の
+  ILI9341 は `madctl: 0xE8` で正立・非ミラーの 320×240 landscape になる（180° 反転は `0x28`）。
+  `lcd_hello.rb` は `invert: false, madctl: 0xE8` で確認済み。
+- 配線（XIAO ←→ MSP2807）: SCK=D8/GPIO19, MOSI=D10/GPIO18, CS=D3/GPIO21,
+  DC=D1/GPIO1, RST=D0/GPIO0, BL=D6/GPIO16, MISO 未接続。
 
-#### 実機検証で確定すべき点（焼いてから順に）
-
-1. **点灯**: `fill_rect(0,0,320,320,RED)` で全面赤になるか（配線・電源の一次確認）。
-2. **色反転**: ネガ表示なら `invert:` を切替（MSP2807 は `false` の想定）。
-3. **色順 RGB/BGR**: 赤が青に出るなら `madctl[]` の BGR ビット（0x08）を要調整。
-4. **向き・解像度**: ILI9341 はネイティブ 240×320 で、ILI9342C（320×240）と縦横が 90° 違う。
-   現状の `madctl[]` テーブルと `s_width/s_height` の swap 判定は ILI9342C 前提なので、ILI9341 を
-   ランドスケープに正しく収めると rotation の意味がずれる可能性がある。実機で「全面塗り＋文字正立」に
-   なる rotation を確定し、必要なら C 層にパネル種別フラグ（ネイティブ向き補正）を追加する。
-   サンプルは点灯確認を向き非依存にするため `fill_rect(0,0,320,320,...)` で全面塗りしている。
+残課題（任意・優先度低）: パネル種別ごとの向き補正は現状 `madctl:` 手動指定で吸収している。ILI9341 を
+既定で正しい向きにする C 層のパネル種別フラグ化は、必要になれば検討（現状は手動指定で足りている）。
 
 ## M5Stack 対応
 
@@ -154,7 +149,7 @@ API があるが C6 向けサンプルが無い。CLAUDE.md の方針（サン�
   esp_lcd_panel_io_spi ベース、フレームバッファなし（2KB ピンポン DMA バッファ）。
   ピンは `LCD.new` で変更可、デフォルトは M5Stack Core 初代（CS=14, DC=27, RST=33, BL=32）
 - バックライトは GPIO32 を LEDC PWM（AXP192 不要なのが Core2 との違い）
-- サンプル: `test/samples/esp32/`（lcd_hello / lcd_demo / i2c_scan_m5go / buttons_m5go / gpio）
+- サンプル: `examples/m5go/`（lcd_hello / lcd_demo / gpio / buttons / i2c_scan / ntp_clock / imu_level / angle_meter / motion_counter / whack_a_mole / rubykaigi27 / savao 他）
 
 ### M5Stack Core2 対応（将来）
 
@@ -175,7 +170,7 @@ C 層に持つと速度・コード量とも改善できる。
 
 ### 画像表示（`draw_image`）の実装方法検討
 
-現状の `tools/img2rle.rb` は RGB565 RLE をバイナリ文字列定数として `.rb` ファイルに埋め込み、
+現状の `examples/tools/img2rle.rb` は RGB565 RLE をバイナリ文字列定数として `.rb` ファイルに埋め込み、
 `String#getbyte` で走査して `fill_rect` を呼ぶアプローチ。
 
 **懸念点:**
