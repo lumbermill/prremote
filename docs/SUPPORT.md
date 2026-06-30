@@ -20,14 +20,16 @@ prremote が対応しているボード × 機能の一覧と、リリース後�
 | SPI | ✅ | ✅ | ✅ | ✅ | ✅ |
 | WiFi | — | ✅ | — | ✅ | ✅ |
 | NTP（時刻同期） | — | ✅ | — | ✅ | ✅ |
-| TCPSocket | — | ✅ | — | — | — |
+| TCPSocket | — | ✅ | — | — | ✅⁴ |
+| UDPSocket | — | — | — | — | ✅⁴ |
 | LCD | — | — | — | ✅ ILI9342C | ✅ ILI9341³ |
 
-✅ = 実装済み・実機確認済み / — = 非対応（ハード非搭載 または 未実装）
+✅ = 実装済み・実機確認済み / 🧪 = 実装済み・実機未確認 / — = 非対応（ハード非搭載 または 未実装）
 
 ¹ esp32c6 は USB Serial/JTAG のため `esptool` 必須（`brew install esptool`）＋手動 bootloader モード（hold BOOT → press RST）。他ボードは追加ツール不要。
 ² esp32c6 の I2C デフォルトピンは GPIO6/7。XIAO のエッジパッド（D4=GPIO22 / D5=GPIO23）とは食い違っており実機未確定（[PLAN.md](../PLAN.md) の「XIAO ESP32C6 の周辺ピン確定」参照）。
 ³ MSP2807（ILI9341）は `LCD.new(invert: false, madctl: 0xE8)`。M5Stack ILI9342C は既定（INVON）。
+⁴ esp32c6 の TCPSocket / UDPSocket は ESP-IDF lwIP の BSD ソケットで実装（picoruby-socket の ports/esp32 を流用）。ホスト名・`.local`（mDNS）解決は `getaddrinfo` 経由。UDP サンプルは [examples/xiao_c6/socket-udp.rb](../examples/xiao_c6/socket-udp.rb)。**両方とも XIAO ESP32C6 実機で疎通確認済み**（UDP: connect → send → recvfrom_nonblock、TCP: connect → write → read_nonblock/gets、いずれもエコーサーバと往復）。
 
 ## Post-release smoke test
 

@@ -7,5 +7,8 @@
  */
 #ifndef PICORUBY_H
 #define PICORUBY_H
-#include "socket.h"
+/* Reach picoruby-socket's socket.h by explicit path rather than relying on an
+ * -I search: on ESP-IDF a bare "socket.h" would resolve to lwIP's
+ * port/esp32xx/include/sys/socket.h (earlier on the include path) instead. */
+#include "../picoruby/mrbgems/picoruby-socket/include/socket.h"
 #endif /* PICORUBY_H */

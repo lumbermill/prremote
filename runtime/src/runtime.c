@@ -25,6 +25,9 @@
 #ifdef HAS_SOCKET
 #include "socket_wrap.h"
 #endif
+#ifdef HAS_UDP_SOCKET
+#include "socket_wrap_udp.h"
+#endif
 #ifdef HAS_LCD
 #include "lcd_wrap.h"
 #endif
@@ -131,6 +134,9 @@ static void exec_mrb(void)
 #endif
 #ifdef HAS_SOCKET
   if (!create_wrap_task(socket_wrap, "socket_wrap")) return;
+#endif
+#ifdef HAS_UDP_SOCKET
+  if (!create_wrap_task(socket_wrap_udp, "socket_wrap_udp")) return;
 #endif
 #ifdef HAS_LCD
   if (!create_wrap_task(lcd_wrap, "lcd_wrap")) return;

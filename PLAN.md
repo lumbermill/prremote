@@ -84,6 +84,13 @@ Seeed XIAO ESP32C6 の想定対応（D2/GPIO2・LED/GPIO15 以外は未検証）
   エコーを返すことを確認。C6 デフォルトは SPI2_HOST・SCK=GPIO19(D8) / MOSI=GPIO18(D10) / MISO=GPIO20(D9)。
   実デバイス版（SPI フラッシュや SD の JEDEC ID 読み出し）はデバイスが手に入ってから別途。
 
+## classic esp32（M5GO）への TCP/UDPSocket 展開（任意）
+
+esp32c6 の TCPSocket / UDPSocket は実機検証済み（[docs/SUPPORT.md](docs/SUPPORT.md) 参照）。
+classic esp32 にも同じ層を載せられる（`ports/esp32` は共通、`esp32/main/CMakeLists.txt` と
+`bindings_esp32.c` に esp32c6 と同じ socket 配線＋`MAX_VM_COUNT` 引き上げを足すだけ）。
+需要を見て判断する。
+
 ## ESP32 LCD の向き自動補正（任意・優先度低）
 
 パネル種別ごとの向き補正は現状 `LCD.new(madctl:)` 手動指定で吸収している（ILI9341/MSP2807 は `madctl: 0xE8`）。

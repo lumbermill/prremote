@@ -10,14 +10,17 @@
  *   mrbgems/picoruby-socket/ports/rp2040/tcp_socket.c  (lwip implementation)
  *
  * This file provides only the glue: mrbc_socket_init() is a trimmed copy of
- * picoruby-socket/src/mrubyc/socket.c — UDP/SSL/TCPServer stubs removed
- * because those gems are not included in this build.
+ * picoruby-socket/src/mrubyc/socket.c — SSL/TCPServer stubs removed because
+ * those gems are not included in this build. UDPSocket is wired in only when
+ * HAS_UDP_SOCKET is defined (esp32c6 build); picow stays TCP-only.
  * picoruby_compat.h bridges the picorb_alloc / picorb_free symbols that those
  * sources expect from picoruby.h to the plain mruby/c API.
  */
 
 #include "picoruby_compat.h"
-#include "socket.h"
+/* Explicit path: a bare "socket.h" resolves to lwIP's sys/socket.h on ESP-IDF
+ * (earlier on the include path) instead of picoruby-socket's. See picoruby.h. */
+#include "../picoruby/mrbgems/picoruby-socket/include/socket.h"
 
 /* Destructor called when a TCPSocket instance is GC'd or goes out of scope. */
 void mrbc_socket_free(mrbc_value *self)
@@ -33,12 +36,16 @@ void mrbc_socket_free(mrbc_value *self)
 }
 
 /*
- * Initialize only the TCP socket class hierarchy.
- * Add udp_socket_init / ssl_socket_init / tcp_server_init here
- * as additional picoruby gems are integrated.
+ * Initialize the socket class hierarchy.
+ * TCPSocket is always defined; UDPSocket is added on builds that pull in the
+ * UDP port (HAS_UDP_SOCKET). Add ssl_socket_init / tcp_server_init here as
+ * additional picoruby gems are integrated.
  */
 void mrbc_socket_init(mrbc_vm *vm)
 {
   mrbc_class *class_BasicSocket = mrbc_define_class(vm, "BasicSocket", mrbc_class_object);
   tcp_socket_init(vm, class_BasicSocket);
+#ifdef HAS_UDP_SOCKET
+  udp_socket_init(vm, class_BasicSocket);
+#endif
 }

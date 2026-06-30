@@ -520,6 +520,9 @@ void register_wifi_methods(void);
 #ifdef HAS_LCD
 void register_lcd_methods(void);
 #endif
+#ifdef HAS_SOCKET
+void mrbc_socket_init(mrbc_vm *vm);
+#endif
 
 void runtime_define_methods(void)
 {
@@ -555,5 +558,8 @@ void runtime_define_methods(void)
 #endif
 #ifdef HAS_LCD
   register_lcd_methods();
+#endif
+#ifdef HAS_SOCKET
+  mrbc_socket_init(0);
 #endif
 }
