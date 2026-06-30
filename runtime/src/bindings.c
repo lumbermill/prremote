@@ -8,7 +8,9 @@
 #include <mrubyc.h>
 
 #ifdef HAS_WIFI
+#include "pico/cyw43_arch.h"
 void register_cyw43_methods(void);
+bool prr_cyw43_ensure_arch_init(void);
 #endif
 #ifdef HAS_SOCKET
 void mrbc_socket_init(mrbc_vm *vm);
@@ -80,6 +82,51 @@ static void c_gpio_put(mrbc_vm *vm, mrbc_value v[], int argc)
 static void c_gpio_get(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   SET_INT_RETURN(gpio_get(GET_INT_ARG(1)) ? 1 : 0);
+}
+
+/* ------------------------------------------------------------------ */
+/* Onboard LED — board differences are absorbed here (see GPIO.led).   */
+/* Pico W / Pico 2 W: the LED hangs off the CYW43 wireless chip's      */
+/* GPIO0, so the chip must be powered up first (no network connection  */
+/* is made). Pico / Pico 2: PICO_DEFAULT_LED_PIN.                      */
+/* ------------------------------------------------------------------ */
+
+static void c_led_init(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+#ifdef HAS_WIFI
+  if (!prr_cyw43_ensure_arch_init()) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43 init failed");
+  }
+#elif defined(PICO_DEFAULT_LED_PIN)
+  gpio_init(PICO_DEFAULT_LED_PIN);
+  gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
+#else
+  mrbc_raise(vm, MRBC_CLASS(RuntimeError), "no onboard LED on this board");
+#endif
+}
+
+static void c_led_put(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int val = GET_INT_ARG(1);
+#ifdef HAS_WIFI
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, val);
+#elif defined(PICO_DEFAULT_LED_PIN)
+  gpio_put(PICO_DEFAULT_LED_PIN, val);
+#else
+  (void)val;
+  mrbc_raise(vm, MRBC_CLASS(RuntimeError), "no onboard LED on this board");
+#endif
+}
+
+static void c_led_get(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+#ifdef HAS_WIFI
+  SET_INT_RETURN(cyw43_arch_gpio_get(CYW43_WL_GPIO_LED_PIN) ? 1 : 0);
+#elif defined(PICO_DEFAULT_LED_PIN)
+  SET_INT_RETURN(gpio_get(PICO_DEFAULT_LED_PIN) ? 1 : 0);
+#else
+  mrbc_raise(vm, MRBC_CLASS(RuntimeError), "no onboard LED on this board");
+#endif
 }
 
 /* ------------------------------------------------------------------ */
@@ -327,6 +374,9 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_gpio_pull_down", c_gpio_pull_down);
   mrbc_define_method(0, mrbc_class_object, "_gpio_put",       c_gpio_put);
   mrbc_define_method(0, mrbc_class_object, "_gpio_get",       c_gpio_get);
+  mrbc_define_method(0, mrbc_class_object, "_led_init",        c_led_init);
+  mrbc_define_method(0, mrbc_class_object, "_led_put",         c_led_put);
+  mrbc_define_method(0, mrbc_class_object, "_led_get",         c_led_get);
   mrbc_define_method(0, mrbc_class_object, "_adc_init",         c_adc_init);
   mrbc_define_method(0, mrbc_class_object, "_adc_select_input", c_adc_select_input);
   mrbc_define_method(0, mrbc_class_object, "_adc_read",         c_adc_read);

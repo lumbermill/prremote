@@ -20,8 +20,26 @@ class GPIO
   IN_PULLUP   = 2
   IN_PULLDOWN = 3
 
+  # Returns the board's onboard LED as a GPIO. All board differences are
+  # absorbed in the C layer (_led_init / _led_put / _led_get):
+  #   - Pico W / Pico 2 W: driven through the CYW43 wireless chip's GPIO0;
+  #     the chip is powered up on first use (no network connection is made).
+  #   - Pico / Pico 2: PICO_DEFAULT_LED_PIN (GPIO 25).
+  #   - XIAO ESP32C6: the active-low user LED on GPIO 15 (inversion hidden,
+  #     so write(1) always means "on").
+  # write(1)/write(0) turn it on/off uniformly. Boards without a single-color
+  # onboard LED (e.g. M5GO) raise RuntimeError.
+  def self.led
+    new(nil)
+  end
+
   def initialize(pin, direction = OUT)
     @pin = pin
+    if pin.nil?
+      @onboard_led = true
+      _led_init
+      return
+    end
     _gpio_init(pin)
     if direction == OUT
       _gpio_set_dir(pin, 1)
@@ -33,10 +51,12 @@ class GPIO
   end
 
   def write(val)
+    return _led_put(val) if @onboard_led
     _gpio_put(@pin, val)
   end
 
   def read
+    return _led_get if @onboard_led
     _gpio_get(@pin)
   end
 end

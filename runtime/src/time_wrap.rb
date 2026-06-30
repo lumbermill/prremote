@@ -1,6 +1,6 @@
-# Time — SNTP-synced wall clock for Pico W.
+# Time — SNTP-synced wall clock for boards with WiFi (Pico W / ESP32).
 # Not compatible with picoruby-time; this is a prremote-specific class.
-# WiFi (CYW43) must be connected before calling sync.
+# WiFi must be connected (WiFi.connect) before calling sync.
 #
 # Example:
 #   t = Time.new(offset: 9)    # JST = UTC+9

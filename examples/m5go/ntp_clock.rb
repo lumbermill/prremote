@@ -16,14 +16,14 @@ lcd = LCD.new
 lcd.fill(LCD::BLACK)
 lcd.text(4, 4, "Connecting...", scale: 2)
 
-CYW43.init
+WiFi.init
 begin
-  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_MIXED_PSK, 20)
-rescue CYW43::WiFi::ConnectError
+  WiFi.connect(SSID, PASSWORD, WiFi::Auth::WPA2_MIXED_PSK, 20)
+rescue WiFi::ConnectError
   lcd.fill(LCD::RED)
   lcd.text(4, 4, "Auth failed", bg: LCD::RED, scale: 2)
   return
-rescue CYW43::WiFi::ConnectTimeout
+rescue WiFi::ConnectTimeout
   lcd.fill(LCD::RED)
   lcd.text(4, 4, "Timed out", bg: LCD::RED, scale: 2)
   return

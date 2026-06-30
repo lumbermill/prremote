@@ -138,6 +138,13 @@ static void c_not_on_esp32(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_raise(vm, MRBC_CLASS(RuntimeError), "not supported on ESP32");
 }
 
+/* GPIO.led: the M5GO / M5Stack Core gen1 has no single-color onboard LED
+ * (it has an SK6812 RGB LED bar instead), so there is nothing to drive. */
+static void c_led_unsupported(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_raise(vm, MRBC_CLASS(RuntimeError), "no onboard LED on this board");
+}
+
 /* ------------------------------------------------------------------ */
 /* PWM bindings — LEDC                                                 */
 /* Up to 8 pins; pins are assigned LEDC channels in _pwm_gpio_init     */
@@ -501,6 +508,9 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_gpio_pull_down", c_gpio_pull_down);
   mrbc_define_method(0, mrbc_class_object, "_gpio_put",       c_gpio_put);
   mrbc_define_method(0, mrbc_class_object, "_gpio_get",       c_gpio_get);
+  mrbc_define_method(0, mrbc_class_object, "_led_init",        c_led_unsupported);
+  mrbc_define_method(0, mrbc_class_object, "_led_put",         c_led_unsupported);
+  mrbc_define_method(0, mrbc_class_object, "_led_get",         c_led_unsupported);
   mrbc_define_method(0, mrbc_class_object, "_adc_init",         c_adc_init);
   mrbc_define_method(0, mrbc_class_object, "_adc_read_pin",     c_adc_read_pin);
   mrbc_define_method(0, mrbc_class_object, "_adc_select_input", c_not_on_esp32);

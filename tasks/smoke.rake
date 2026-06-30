@@ -99,7 +99,7 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
   def picow_steps(board)
     common_steps + wired_steps(board) + wifi_steps(board) + [
       eyeball('ntp clock prints a synced time', "run #{ntp_script(board)}"),
-      manual('LED: examples/pico/led_picow.rb blinks the onboard LED')
+      manual('LED: examples/pico/led.rb blinks the onboard LED')
     ]
   end
 

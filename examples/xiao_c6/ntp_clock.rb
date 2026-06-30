@@ -10,15 +10,15 @@ PASSWORD = "MyPassword"
 NTP_SERVER    = "ntp.nict.jp"
 SYNC_INTERVAL = 3600
 
-CYW43.init
+WiFi.init
 puts "Connecting to #{SSID}..."
 begin
-  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_MIXED_PSK, 20)
-  puts "Connected: #{CYW43::WiFi.ipv4_address}"
-rescue CYW43::WiFi::ConnectError => e
+  WiFi.connect(SSID, PASSWORD, WiFi::Auth::WPA2_MIXED_PSK, 20)
+  puts "Connected: #{WiFi.ipv4_address}"
+rescue WiFi::ConnectError => e
   puts "Auth failed: #{e.message}"
   return
-rescue CYW43::WiFi::ConnectTimeout => e
+rescue WiFi::ConnectTimeout => e
   puts "Timed out: #{e.message}"
   return
 end

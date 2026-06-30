@@ -3,20 +3,20 @@
 # Wiring: none — WiFi is built-in.
 # Set SSID and PASSWORD before deploying.
 
-SSID     = "MySSID"
-PASSWORD = "MyPassword"
+SSID     = "360-raspi"
+PASSWORD = "raspberry"
 
-CYW43.init
+WiFi.init
 puts "Connecting to #{SSID}..."
 
 begin
-  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_MIXED_PSK, 15)
+  WiFi.connect(SSID, PASSWORD, WiFi::Auth::WPA2_MIXED_PSK, 15)
   puts "Connected!"
-  puts "IP:      #{CYW43::WiFi.ipv4_address}"
-  puts "Netmask: #{CYW43::WiFi.ipv4_netmask}"
-  puts "Gateway: #{CYW43::WiFi.ipv4_gateway}"
-rescue CYW43::WiFi::ConnectError => e
+  puts "IP:      #{WiFi.ipv4_address}"
+  puts "Netmask: #{WiFi.ipv4_netmask}"
+  puts "Gateway: #{WiFi.ipv4_gateway}"
+rescue WiFi::ConnectError => e
   puts "Auth failed: #{e.message}"
-rescue CYW43::WiFi::ConnectTimeout => e
+rescue WiFi::ConnectTimeout => e
   puts "Timed out: #{e.message}"
 end

@@ -62,7 +62,7 @@ PORT=/dev/tty.usbmodem101 SMOKE_WIFI=wk/wifi.rb rake "smoke[picow]"
 - pico の項目 +
 - auto: `wifi.rb` → "Connected!" / IP 表示
 - [ ] `ntp_clock_picow.rb`: 同期時刻が出る
-- [ ] `led_picow.rb`: オンボード LED（CYW43 経由）が点滅
+- [ ] `led.rb`: オンボード LED（`GPIO.led` → CYW43 経由）が点滅
 
 ### esp32（M5GO / M5Stack Core 初代）
 
@@ -78,6 +78,7 @@ PORT=/dev/tty.usbmodem101 SMOKE_WIFI=wk/wifi.rb rake "smoke[picow]"
 - [ ] `install -b esp32c6` → esptool ＋ hold BOOT→press RST で書き込み、READY
 - auto: version / eval / wifi
 - [ ] `gpio.rb`: 黄色 LED（GPIO15）点滅、ボタン（GPIO2）で "pressed"
+- [ ] `led.rb`: 黄色 LED（`GPIO.led` → GPIO15 active-low）が点滅
 - [ ] `lcd_hello.rb`: MSP2807 が正立 320×240（`invert: false` / `madctl: 0xE8`）
 - [ ] `i2c_scan.rb`: ※デフォルトピン GPIO6/7 は実機未確定（[PLAN.md](../PLAN.md) 参照）
 - [ ] `ntp_clock.rb`: シリアルに JST が出る

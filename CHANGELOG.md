@@ -12,6 +12,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: `docs/SUPPORT.md` — board × feature support matrix (pico / picow / pico2 / esp32 / esp32c6) that doubles as a post-release manual verification checklist for physical devices.
 - Development: `rake smoke[BOARD]` — semi-automated smoke test that runs the device over serial and asserts output for the checkable steps (version banner, `eval`, WiFi/IP), and prints the visual checks (LCD / LED / buttons) as a manual checklist. Configurable via `PORT` / `BAUD` / `SMOKE_WIFI` / `SMOKE_NTP` / `PRREMOTE`. Mirrors `docs/SUPPORT.md`.
 
+### Changed
+
+- Runtime (**breaking**): the WiFi API moved from `CYW43` to a chip-neutral `WiFi` module, and the sub-module nesting was flattened. `CYW43` was the part number of the Pico W's Infineon radio, but the same API also drives ESP32's built-in WiFi — so the chip name was misleading on every non-Pico-W board. There is no compatibility alias; user scripts must be updated:
+  - `CYW43.init` → `WiFi.init`
+  - `CYW43.initialized?` / `enable_sta_mode` / `disable_sta_mode` → `WiFi.*`
+  - `CYW43::WiFi.connect` / `disconnect` / `link_status` → `WiFi.connect` / `disconnect` / `link_status`
+  - `CYW43::WiFi.ipv4_address` / `ipv4_netmask` / `ipv4_gateway` → `WiFi.ipv4_*`
+  - `CYW43::Auth::*` → `WiFi::Auth::*`
+  - `CYW43::WiFi::ConnectError` / `ConnectTimeout` / `LINK_*` → `WiFi::ConnectError` / `ConnectTimeout` / `LINK_*`
+  - `CYW43::GPIO` (Pico W onboard LED) → `GPIO.led` (see below). It is conceptually a GPIO, not WiFi.
+  - The underlying C primitives (`_cyw43_*` / `_wifi_*`) and the `cyw43_wrap.rb` filename are unchanged — they are internal and never referenced by user scripts.
+
+- Runtime: `GPIO.led` — board-neutral access to the onboard LED. `GPIO.led.write(1)` / `write(0)` turn it on/off the same way on every board; all hardware differences are absorbed in the C layer (new `_led_init` / `_led_put` / `_led_get` primitives):
+  - Pico W / Pico 2 W: the LED hangs off the CYW43 wireless chip's GPIO0, so the chip is powered up automatically on first use (no network connection is made) — the user no longer calls `WiFi.init` to blink the LED.
+  - Pico / Pico 2: `PICO_DEFAULT_LED_PIN` (GPIO 25).
+  - XIAO ESP32C6: the active-low user LED on GPIO 15 — the inversion is hidden, so `write(1)` always means "on".
+  - M5GO / M5Stack Core gen1: raises `RuntimeError` (no single-color onboard LED; it has an RGB LED bar instead).
+  - New samples `examples/pico/led.rb` (whole Pico family) and `examples/xiao_c6/led.rb`. The Pico one replaces the now-merged `led_pico.rb` + `led_picow.rb`, which no longer need to be board-specific.
+
 ### Fixed
 
 - Development: the `rake setup` pre-push hook scanned `test/samples` for non-placeholder WiFi credentials, but samples moved to `examples/` — the guard had been a no-op. It now scans `examples/`. Re-run `rake setup` to refresh the installed hook.

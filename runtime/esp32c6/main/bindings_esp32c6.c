@@ -96,6 +96,31 @@ static void c_gpio_get(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 /* ------------------------------------------------------------------ */
+/* Onboard LED (GPIO.led) — Seeed XIAO ESP32C6 user LED on GPIO 15,    */
+/* active-low (driving the pin low turns the LED on). The active-low   */
+/* inversion is hidden here so write(1) always means "on".            */
+/* ------------------------------------------------------------------ */
+
+#define BOARD_LED_GPIO 15
+
+static void c_led_init(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  gpio_reset_pin(BOARD_LED_GPIO);
+  gpio_set_direction(BOARD_LED_GPIO, GPIO_MODE_OUTPUT);
+  gpio_set_level(BOARD_LED_GPIO, 1); /* active-low: start off */
+}
+
+static void c_led_put(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  gpio_set_level(BOARD_LED_GPIO, GET_INT_ARG(1) ? 0 : 1); /* active-low */
+}
+
+static void c_led_get(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(gpio_get_level(BOARD_LED_GPIO) == 0 ? 1 : 0); /* active-low */
+}
+
+/* ------------------------------------------------------------------ */
 /* ADC bindings — ADC1 only (GPIO 0-6 on ESP32-C6)                   */
 /* ------------------------------------------------------------------ */
 
@@ -507,6 +532,9 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_gpio_pull_down", c_gpio_pull_down);
   mrbc_define_method(0, mrbc_class_object, "_gpio_put",       c_gpio_put);
   mrbc_define_method(0, mrbc_class_object, "_gpio_get",       c_gpio_get);
+  mrbc_define_method(0, mrbc_class_object, "_led_init",        c_led_init);
+  mrbc_define_method(0, mrbc_class_object, "_led_put",         c_led_put);
+  mrbc_define_method(0, mrbc_class_object, "_led_get",         c_led_get);
   mrbc_define_method(0, mrbc_class_object, "_adc_init",         c_adc_init);
   mrbc_define_method(0, mrbc_class_object, "_adc_read_pin",     c_adc_read_pin);
   mrbc_define_method(0, mrbc_class_object, "_adc_select_input", c_not_on_esp32);

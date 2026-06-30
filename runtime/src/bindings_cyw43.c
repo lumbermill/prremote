@@ -22,7 +22,7 @@
 static bool s_cyw43_initialized = false;
 
 /* ------------------------------------------------------------------ */
-/* CYW43 chip / LED                                                    */
+/* CYW43 chip init                                                     */
 /* ------------------------------------------------------------------ */
 
 static void c_cyw43_init(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -49,6 +49,18 @@ static void c_cyw43_initialized(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_BOOL_RETURN(s_cyw43_initialized);
 }
 
+/* Idempotently powers up the CYW43 chip (no country code). Shared with the
+ * onboard-LED path in bindings.c (GPIO.led), which needs the chip up to drive
+ * WL_GPIO0. Returns true on success. */
+bool prr_cyw43_ensure_arch_init(void)
+{
+  if (!s_cyw43_initialized) {
+    if (cyw43_arch_init() != 0) return false;
+    s_cyw43_initialized = true;
+  }
+  return true;
+}
+
 static void c_cyw43_enable_sta_mode(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   cyw43_arch_enable_sta_mode();
@@ -57,16 +69,6 @@ static void c_cyw43_enable_sta_mode(mrbc_vm *vm, mrbc_value v[], int argc)
 static void c_cyw43_disable_sta_mode(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
-}
-
-static void c_cyw43_gpio_put(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  cyw43_arch_gpio_put(GET_INT_ARG(1), GET_INT_ARG(2));
-}
-
-static void c_cyw43_gpio_get(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  SET_INT_RETURN(cyw43_arch_gpio_get(GET_INT_ARG(1)));
 }
 
 /* ------------------------------------------------------------------ */
@@ -148,8 +150,6 @@ void register_cyw43_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_cyw43_initialized",      c_cyw43_initialized);
   mrbc_define_method(0, mrbc_class_object, "_cyw43_enable_sta_mode",  c_cyw43_enable_sta_mode);
   mrbc_define_method(0, mrbc_class_object, "_cyw43_disable_sta_mode", c_cyw43_disable_sta_mode);
-  mrbc_define_method(0, mrbc_class_object, "_cyw43_gpio_put",         c_cyw43_gpio_put);
-  mrbc_define_method(0, mrbc_class_object, "_cyw43_gpio_get",         c_cyw43_gpio_get);
   mrbc_define_method(0, mrbc_class_object, "_wifi_connect",           c_wifi_connect);
   mrbc_define_method(0, mrbc_class_object, "_wifi_disconnect",        c_wifi_disconnect);
   mrbc_define_method(0, mrbc_class_object, "_wifi_link_status",       c_wifi_link_status);

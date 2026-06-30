@@ -132,7 +132,7 @@ Evaluate a Ruby one-liner on the device.
 
 ```bash
 prremote eval "puts 1 + 1"
-prremote eval "CYW43.init; CYW43::GPIO.new(CYW43::GPIO::LED_PIN).write 1"
+prremote eval "GPIO.led.write 1"
 ```
 
 ---
@@ -222,7 +222,7 @@ prremote flashes a minimal C firmware (built on mruby/c) onto the Pico W. The fi
    - `DPLY` + `.mrb` bytecode → save to flash and confirm with `DEPLOYED` (`deploy`)
 3. Waits for the next command
 
-Scripts saved via `deploy` are stored in flash and run automatically on every boot. GPIO / ADC / PWM / I2C / SPI bindings are available on all boards; WiFi (CYW43) on the Pico W; an `LCD` class (ILI9342C) on ESP32 / M5Stack.
+Scripts saved via `deploy` are stored in flash and run automatically on every boot. GPIO / ADC / PWM / I2C / SPI bindings are available on all boards; a `WiFi` module on boards with a radio (Pico W and ESP32); an `LCD` class (ILI9342C) on ESP32 / M5Stack.
 
 ---
 

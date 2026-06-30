@@ -1,4 +1,4 @@
-# Device: Pico W only (requires CYW43 WiFi chip)
+# Device: Pico W only (requires onboard WiFi; Pico / Pico 2 have no radio)
 # Displays current time (JST = UTC+9) updated every second.
 # Syncs once per hour via SNTP (UDP port 123, RFC 4330).
 #
@@ -10,15 +10,15 @@ PASSWORD = "MyPassword"
 SYNC_INTERVAL = 3600 # seconds between re-syncs
 NTP_SERVER = "ntp.nict.jp"
 
-CYW43.init("JP")
+WiFi.init("JP")
 puts "Connecting to #{SSID}..."
 begin
-  CYW43::WiFi.connect(SSID, PASSWORD, CYW43::Auth::WPA2_MIXED_PSK, 15)
-  puts "Connected! IP: #{CYW43::WiFi.ipv4_address}"
-rescue CYW43::WiFi::ConnectError => e
+  WiFi.connect(SSID, PASSWORD, WiFi::Auth::WPA2_MIXED_PSK, 15)
+  puts "Connected! IP: #{WiFi.ipv4_address}"
+rescue WiFi::ConnectError => e
   puts "Auth failed: #{e.message}"
   return
-rescue CYW43::WiFi::ConnectTimeout => e
+rescue WiFi::ConnectTimeout => e
   puts "Timed out: #{e.message}"
   return
 end
