@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Docs: `docs/SUPPORT.md` — board × feature support matrix (pico / picow / pico2 / esp32 / esp32c6) that doubles as a post-release manual verification checklist for physical devices.
+- Development: `rake smoke[BOARD]` — semi-automated smoke test that runs the device over serial and asserts output for the checkable steps (version banner, `eval`, WiFi/IP), and prints the visual checks (LCD / LED / buttons) as a manual checklist. Configurable via `PORT` / `BAUD` / `SMOKE_WIFI` / `SMOKE_NTP` / `PRREMOTE`. Mirrors `docs/SUPPORT.md`.
+
 ### Fixed
 
+- Development: the `rake setup` pre-push hook scanned `test/samples` for non-placeholder WiFi credentials, but samples moved to `examples/` — the guard had been a no-op. It now scans `examples/`. Re-run `rake setup` to refresh the installed hook.
 - Build: bumping `VERSION` now re-runs CMake automatically. The pico and ESP-IDF `CMakeLists.txt` read `VERSION` at configure time (to name the artifact and embed `RUNTIME_VERSION`), but a change to `VERSION` alone did not invalidate the CMake cache — so `rake cache` rebuilt with the stale value, producing an old-named `.uf2` and a stale READY banner unless the build dir was deleted by hand. `VERSION` is now registered via `CMAKE_CONFIGURE_DEPENDS`, so all boards reconfigure on a version bump.
 
 ## [0.2.1] - 2026-06-30

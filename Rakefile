@@ -4,6 +4,9 @@ require 'rubygems/package_task'
 spec = Gem::Specification.load('prremote.gemspec')
 Gem::PackageTask.new(spec) { |_pkg| } # rubocop:disable Lint/EmptyBlock
 
+# Additional tasks (rake smoke[BOARD], …).
+Dir.glob('tasks/*.rake').each { |f| load f }
+
 Rake::TestTask.new(:test) do |t|
   t.libs << 'lib' << 'test'
   t.test_files = FileList['test/**/*_test.rb'].exclude('test/integration_test.rb')
@@ -33,9 +36,9 @@ task :setup do
     echo '→ rubocop'
     bundle exec rubocop
     echo '→ wifi credential check'
-    bad=$(git grep -hE '^(SSID|PASSWORD) *=' HEAD -- test/samples | grep -vE 'My(SSID|Password)' || true)
+    bad=$(git grep -hE '^(SSID|PASSWORD) *=' HEAD -- examples | grep -vE 'My(SSID|Password)' || true)
     if [ -n "$bad" ]; then
-      echo 'Non-placeholder WiFi credentials committed in test/samples:'
+      echo 'Non-placeholder WiFi credentials committed in examples/:'
       echo "$bad"
       echo 'Replace with SSID = "MySSID" / PASSWORD = "MyPassword" before pushing.'
       exit 1
