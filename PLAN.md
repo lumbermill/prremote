@@ -73,23 +73,16 @@ Seeed XIAO ESP32C6 の想定対応（D2/GPIO2・LED/GPIO15 以外は未検証）
 - **`wifi.rb` / `ntp_clock.rb`**: ピン依存はないが C6 での WiFi 接続・NTP 同期は実機未確認
   （M5GO=ESP32 classic では確認済みだが C6 は別チップ）。
 
-## XIAO ESP32C6 の SPI / PWM サンプル（未実装）
+## XIAO ESP32C6 の PWM / SPI サンプル（追加済み・実機未検証）
 
-現状 `examples/xiao_c6/` は gpio / i2c_scan / ntp_clock / wifi / lcd_hello のみ。`hw_wrap.rb` には PWM・SPI の
-API があるが C6 向けサンプルが無い。CLAUDE.md の方針（サンプルが唯一の参照、コピペで動く、配線情報を
-コメントに明記）に沿って追加する。いずれもピン確定（上記の D↔GPIO 表）後に実機検証する。
+`examples/xiao_c6/` に `pwm.rb` / `spi_loopback.rb` を追加済み。いずれもピン確定（上記の D↔GPIO 表）後に
+実機検証する。
 
-- **`pwm.rb`（PWM）**: オンボード黄色 LED（GPIO15）を PWM で**ブリージング（明滅）**させる。外部配線不要で
-  コピペ即動作になるのが利点。`PWM.new(15, frequency: 1000, duty_u16: 0)` → `duty_u16=` を 0↔65535 で
-  ランプ。**注意**: LED は active-low なので duty と明るさが反転する（duty 大 = 暗い）。サンプル内で
-  反転を吸収するか、外部 LED（任意の D ピン + 抵抗）方式にするか実機で決める。C6 は LEDC 6ch まで。
-  余裕があれば外部 LED 版（明るさ）・サーボ版（50Hz / duty で角度）も検討。
-- **`spi_loopback.rb`（SPI 自己テスト）**: 外部デバイス不要で確認できるよう、**MOSI→MISO をジャンパで
-  直結**したループバックで `transfer` がエコーを返すことを確認する。C6 デフォルトは SPI2_HOST・
-  SCK=GPIO19(D8) / MOSI=GPIO18(D10) / MISO=GPIO20(D9)。配線: D10(MOSI)↔D9(MISO) を直結、SCK は未接続でよい。
-  `SPI.new(sck_pin: 19, copi_pin: 18, cipo_pin: 20)` → `transfer([0x01,0x02,0x03])` が同じ並びで返れば OK。
-  ピン番号は上記表の確定後に合わせる。実デバイス版（例: SPI フラッシュや SD の JEDEC ID 読み出し）は
-  デバイスが手に入ってから別途。
+- **`pwm.rb`（PWM）**: オンボード黄色 LED（GPIO15）を PWM でブリージング。active-low の反転はスクリプト内で
+  吸収。余裕があれば外部 LED 版（明るさ）・サーボ版（50Hz / duty で角度）も検討。
+- **`spi_loopback.rb`（SPI 自己テスト）**: **MOSI→MISO をジャンパ直結**したループバックで `transfer` が
+  エコーを返すことを確認。C6 デフォルトは SPI2_HOST・SCK=GPIO19(D8) / MOSI=GPIO18(D10) / MISO=GPIO20(D9)。
+  実デバイス版（SPI フラッシュや SD の JEDEC ID 読み出し）はデバイスが手に入ってから別途。
 
 ## ESP32 LCD の向き自動補正（任意・優先度低）
 

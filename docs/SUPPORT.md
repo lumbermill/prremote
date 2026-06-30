@@ -79,6 +79,8 @@ PORT=/dev/tty.usbmodem101 SMOKE_WIFI=wk/wifi.rb rake "smoke[picow]"
 - auto: version / eval / wifi
 - [ ] `gpio.rb`: 黄色 LED（GPIO15）点滅、ボタン（GPIO2）で "pressed"
 - [ ] `led.rb`: 黄色 LED（`GPIO.led` → GPIO15 active-low）が点滅
+- [ ] `pwm.rb`: 黄色 LED（GPIO15）がブリージング（明→暗を繰り返す）
+- [ ] `spi_loopback.rb`: D10(MOSI/GPIO18)↔D9(MISO/GPIO20) をジャンパ直結で "OK: loopback matched"
 - [ ] `lcd_hello.rb`: MSP2807 が正立 320×240（`invert: false` / `madctl: 0xE8`）
 - [ ] `i2c_scan.rb`: ※デフォルトピン GPIO6/7 は実機未確定（[PLAN.md](../PLAN.md) 参照）
 - [ ] `ntp_clock.rb`: シリアルに JST が出る

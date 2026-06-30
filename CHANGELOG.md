@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Example: `examples/xiao_c6/spi_loopback.rb` — SPI self-test for the XIAO ESP32C6 using a single MOSI->MISO jumper (D10/GPIO18 <-> D9/GPIO20); `transfer` echoes the sent bytes. Exercises the SPI read path with no extra device (the LCD already proves the write path).
+- Example: `examples/xiao_c6/pwm.rb` — breathes (fades in/out) the XIAO ESP32C6 onboard yellow LED (GPIO 15) via PWM. No external wiring needed; the active-low inversion is absorbed in the script so the ramped value matches perceived brightness. The C-layer PWM binding (LEDC, 6 channels) already existed; this adds the missing C6-specific copy-paste sample.
 - Docs: `docs/SUPPORT.md` — board × feature support matrix (pico / picow / pico2 / esp32 / esp32c6) that doubles as a post-release manual verification checklist for physical devices.
 - Development: `rake smoke[BOARD]` — semi-automated smoke test that runs the device over serial and asserts output for the checkable steps (version banner, `eval`, WiFi/IP), and prints the visual checks (LCD / LED / buttons) as a manual checklist. Configurable via `PORT` / `BAUD` / `SMOKE_WIFI` / `SMOKE_NTP` / `PRREMOTE`. Mirrors `docs/SUPPORT.md`.
 
