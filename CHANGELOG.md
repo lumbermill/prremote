@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CLI: `install -b esp32c6` (and any USB-Serial/JTAG board routed through esptool) now flashes **hands-free** — no more manual BOOT/RST button dance. esptool is invoked with `--before usb-reset`, which drops the chip into the download ROM over USB, and `--after hard-reset`, which reboots straight into the freshly flashed firmware. If usb-reset doesn't take on some host/board, it falls back to the previous manual bootloader entry (`--before no-reset`), now with `--connect-attempts 0` (retry forever) so the manual case waits indefinitely instead of failing with "No serial data received" after esptool's default 7 attempts. _Verified hands-free end-to-end on a physical XIAO ESP32C6: `install -b esp32c6` flashed 0.2.1 with no buttons in ~4.7 s, and the board rebooted into the runtime (`prremote version` → `runtime: 0.2.1`)._
 - Runtime (**breaking**): the WiFi API moved from `CYW43` to a chip-neutral `WiFi` module, and the sub-module nesting was flattened. `CYW43` was the part number of the Pico W's Infineon radio, but the same API also drives ESP32's built-in WiFi — so the chip name was misleading on every non-Pico-W board. There is no compatibility alias; user scripts must be updated:
   - `CYW43.init` → `WiFi.init`
   - `CYW43.initialized?` / `enable_sta_mode` / `disable_sta_mode` → `WiFi.*`

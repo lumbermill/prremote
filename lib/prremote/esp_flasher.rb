@@ -104,19 +104,40 @@ module Prremote
         MSG
       end
 
-      warn ''
-      warn 'Put the board in bootloader mode while "Connecting..." is shown:'
-      warn '  XIAO ESP32C6: hold BOOT, press RST, release both.'
+      ctx = { esptool: esptool, port: port, image_path: image_path, board: board, verbose: verbose }
 
-      cmd = [*esptool,
-             '--chip', board, '--port', port,
-             '--before', 'no-reset', '--after', 'no-reset',
-             'write-flash', '0x0', image_path]
-      warn "[flash] #{cmd.join(' ')}" if verbose
-      system(*cmd) or raise Error, 'esptool exited with an error'
+      # USB-Serial/JTAG chips (e.g. XIAO ESP32C6) can be dropped into the
+      # download ROM over USB, so esptool's usb-reset flashes hands-free — no
+      # BOOT/RST button dance. --after hard-reset then reboots straight into the
+      # freshly flashed firmware. Verified on a physical XIAO ESP32C6.
+      return if esptool_write(ctx, before: 'usb-reset', after: 'hard-reset', connect_attempts: 7)
+
+      # Fallback for hosts/boards where usb-reset doesn't take: enter the
+      # bootloader by hand and let esptool retry forever. --before no-reset never
+      # resets the chip, so each attempt just re-sends SYNC until the manual
+      # BOOT/RST lands the board in download mode — no timeout to race against.
+      warn ''
+      warn "Couldn't reset #{board} automatically. Put it in bootloader mode by hand:"
+      warn '  XIAO ESP32C6: hold BOOT, press RST, release both.'
+      warn 'No rush — esptool keeps retrying the SYNC handshake until it connects.'
+      esptool_write(ctx, before: 'no-reset', after: 'no-reset', connect_attempts: 0) or
+        raise Error, 'esptool exited with an error'
 
       warn ''
       warn 'Flash complete. Press RST to start the firmware.'
+    end
+
+    # Runs one `esptool write-flash 0x0 <image>` pass, returning esptool's
+    # success boolean.  connect_attempts 0 = retry the connect forever.
+    # `ctx` carries the fixed invocation context (esptool/port/image_path/board/verbose).
+    def self.esptool_write(ctx, before:, after:, connect_attempts:)
+      cmd = [*ctx[:esptool],
+             '--chip', ctx[:board], '--port', ctx[:port],
+             '--connect-attempts', connect_attempts.to_s,
+             '--before', before, '--after', after,
+             'write-flash', '0x0', ctx[:image_path]]
+      warn "[flash] #{cmd.join(' ')}" if ctx[:verbose]
+      system(*cmd)
     end
 
     def self.find_esptool
