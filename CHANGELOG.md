@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Example: `examples/xiao_c6/i2c_scan.rb` — fixed the pin numbers. The sample used `sda_pin: 6, scl_pin: 7` (the ESP32C6 chip's I2C default pins), but those GPIOs aren't broken out on the XIAO ESP32C6's edge pads. The board's silkscreened D4/D5 (I2C SDA/SCL) actually map to GPIO22/GPIO23. Now uses `sda_pin: 22, scl_pin: 23`, verified against a real I2C device on a physical XIAO ESP32C6.
 - Runtime (**esp32c6**): PWM no longer breaks (LED stuck on, `E ledc: ledc_set_timer_div(...): timer clock conflict, already is 9 but attempt to 4`). All ESP32-C6 LEDC low-speed timers share **one** global clock source, but the PWM class and the LCD backlight chose different ones via `LEDC_AUTO_CLK`: the backlight (5 kHz/8-bit) resolved to XTAL (clock id 9) while PWM at 1 kHz/16-bit needs PLL_F80M (id 4). Because the firmware keeps LEDC state across `prremote run` invocations (a run never resets the chip), once an LCD example had run, every later PWM script hit `ledc_timer_config()` "timer clock conflict" — the timer kept its stale resolution while `res_bits` said otherwise, so `duty_u16=` wrote a saturated value. Both the PWM binding and the LCD backlight are now pinned to `PLL_F80M` (matching PWM's existing 80 MHz resolution budget) so the clock choice is always identical, and `_pwm_set_freq` now raises instead of silently continuing if the timer config fails. Classic ESP32 (no PLL_DIV clock, proven working on M5GO) is left on `LEDC_AUTO_CLK`.
 
 ### Changed

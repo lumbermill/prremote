@@ -56,8 +56,8 @@ Seeed XIAO ESP32C6 の想定対応（D2/GPIO2・LED/GPIO15 以外は未検証）
 | D1/A1 | GPIO1 | |
 | D2/A2 | GPIO2 | ボタン例で確認済み |
 | D3 | GPIO21 | |
-| D4/SDA | GPIO22 | I2C SDA |
-| D5/SCL | GPIO23 | I2C SCL |
+| D4/SDA | GPIO22 | I2C SDA・`i2c_scan.rb` で確認済み |
+| D5/SCL | GPIO23 | I2C SCL・`i2c_scan.rb` で確認済み |
 | D6/TX | GPIO16 | |
 | D7/RX | GPIO17 | |
 | D8/SCK | GPIO19 | |
@@ -65,9 +65,6 @@ Seeed XIAO ESP32C6 の想定対応（D2/GPIO2・LED/GPIO15 以外は未検証）
 | D10/MOSI | GPIO18 | |
 | (LED) | GPIO15 | オンボード黄色 LED（確認済み） |
 
-- **`examples/xiao_c6/i2c_scan.rb`**: 現状 `sda_pin: 6, scl_pin: 7`（GPIO6/7）だが、XIAO のエッジパッドに
-  GPIO6/7 は出ていないと思われる。正しくは **D4=GPIO22 / D5=GPIO23** のはず。I2C デバイスを D4/D5 に
-  繋いでアドレスが出るか確認してから値とコメントを修正する。
 - ランタイムの C6 デフォルト I2C/SPI ピン（CHANGELOG: SDA=6/SCL=7, SCK=19/MOSI=18）も XIAO 実シルクに
   合わせるか要検討（デフォルトを XIAO 基準にするか、チップ汎用のままにするか）。
 - **`wifi.rb` / `ntp_clock.rb`**: ピン依存はないが C6 での WiFi 接続・NTP 同期は実機未確認
