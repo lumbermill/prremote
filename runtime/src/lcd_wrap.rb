@@ -1,6 +1,7 @@
 # LCD wrapper for ILI9342C / ILI9341-class SPI panels (ESP32 builds only).
 #
-# The C primitives (_lcd_init, _lcd_fill_rect, _lcd_text, _lcd_brightness)
+# The C primitives (_lcd_init, _lcd_fill_rect, _lcd_text, _lcd_brightness,
+# _lcd_draw_line, _lcd_draw_circle, _lcd_draw_ellipse)
 # live in esp32/main/lcd_ili9342c.c. Pin defaults match the M5GO /
 # M5Stack Core gen1; pass other pins for different ILI9342C/ILI9341 boards.
 #
@@ -52,6 +53,18 @@ class LCD
 
   def pixel(x, y, color)
     _lcd_fill_rect(x, y, 1, 1, color)
+  end
+
+  def draw_line(x0, y0, x1, y1, color)
+    _lcd_draw_line(x0, y0, x1, y1, color)
+  end
+
+  def draw_circle(cx, cy, r, color, fill: false)
+    _lcd_draw_circle(cx, cy, r, color, fill ? 1 : 0)
+  end
+
+  def draw_ellipse(cx, cy, a, b, color, fill: false)
+    _lcd_draw_ellipse(cx, cy, a, b, color, fill ? 1 : 0)
   end
 
   # Draws 8x8-font text scaled by `scale` (1-4). Each character cell is

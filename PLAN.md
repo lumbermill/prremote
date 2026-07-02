@@ -24,15 +24,6 @@ mruby/c には `Timeout` モジュールもスレッドもないため Ruby 層�
 - キャッシュ済みであれば再ダウンロードしない（UF2 と同じ挙動）
 - `$MRBC` 環境変数による上書きは引き続き有効
 
-## Pico / Pico W の判別サポート
-
-BOOTSEL モードでは USB PID・ボリューム名・`INFO_UF2.TXT` がすべて同一のため、ソフトウェアによる自動判別は不可。ユーザーが自分で判断できるよう案内する方向で検討する。
-
-候補:
-
-- **ドキュメントページ（ウェブ）**: 外観写真付きで見分け方を解説。Pico W はボード裏面に "Pico W" のシルク印刷があり、表面に WiFi アンテナのパターン（白いジグザグ線）がある
-- **`prremote install` の対話プロンプト**: ボード未指定時に "Pico W ですか？ [y/N]" と聞く。`--board` オプションと併用
-
 ## 対応ボードの拡張候補
 
 実装済み（pico / picow / pico2 / esp32 / esp32c6）は [docs/SUPPORT.md](docs/SUPPORT.md) 参照。今後の候補:
@@ -98,17 +89,6 @@ ILI9341 を既定で正しい向きにする C 層のパネル種別フラグ化
 同じ esp32 ランタイムで射程内。差分は LCD ピン（CS=5, DC=15, RST なし）と
 **AXP192 電源初期化**（LDO2/DCDC3/GPIO4 を叩かないと画面が点かない）の追加のみ。
 タッチ（FT6336U、I2C 0x38）は I2C バインディングで Ruby から読める。
-
-## LCD クラスの拡張
-
-現状の `LCD` は `fill` / `fill_rect` / `pixel` / `text` のみ。以下を C 層に追加したい。
-
-- `draw_line(x0, y0, x1, y1, color)` — Bresenham の線分アルゴリズム
-- `draw_ellipse(cx, cy, a, b, color)` — Midpoint ellipse algorithm（塗りつぶし版も）
-- `draw_circle(cx, cy, r, color)` — 同上、円特化版
-
-現状はこれらをユーザースクリプト側で `fill_rect` の積み上げにより実装しているが、
-C 層に持つと速度・コード量とも改善できる。
 
 ## 画像表示（`draw_image`）の実装方法検討
 

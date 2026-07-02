@@ -16,6 +16,8 @@
  * and SPI.new(unit: 0) on C6 — use the other unit for external SPI devices
  * while the LCD is active. */
 
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -217,14 +219,8 @@ static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
 /* _lcd_fill_rect(x, y, w, h, color565)                                */
 /* ------------------------------------------------------------------ */
 
-static void c_lcd_fill_rect(mrbc_vm *vm, mrbc_value v[], int argc)
+static void lcd_fill_rect_impl(int x, int y, int w, int h, uint16_t color)
 {
-  int x = GET_INT_ARG(1);
-  int y = GET_INT_ARG(2);
-  int w = GET_INT_ARG(3);
-  int h = GET_INT_ARG(4);
-  uint16_t color = (uint16_t)GET_INT_ARG(5);
-
   if (s_io == NULL) return;
 
   /* Clip to the panel. */
@@ -256,6 +252,207 @@ static void c_lcd_fill_rect(mrbc_vm *vm, mrbc_value v[], int argc)
     first = false;
     sent_rows += rows;
   }
+}
+
+static void c_lcd_fill_rect(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int x = GET_INT_ARG(1);
+  int y = GET_INT_ARG(2);
+  int w = GET_INT_ARG(3);
+  int h = GET_INT_ARG(4);
+  uint16_t color = (uint16_t)GET_INT_ARG(5);
+
+  lcd_fill_rect_impl(x, y, w, h, color);
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared helpers for draw_line / draw_circle / draw_ellipse.          */
+/* A single pixel and a horizontal run both go through fill_rect_impl  */
+/* so clipping stays in one place; a run is one SPI transaction        */
+/* instead of one per pixel, which matters for the filled shapes.      */
+/* ------------------------------------------------------------------ */
+
+static inline void lcd_put_pixel(int x, int y, uint16_t color)
+{
+  lcd_fill_rect_impl(x, y, 1, 1, color);
+}
+
+static inline void lcd_hline(int x0, int x1, int y, uint16_t color)
+{
+  if (x0 > x1) { int t = x0; x0 = x1; x1 = t; }
+  lcd_fill_rect_impl(x0, y, x1 - x0 + 1, 1, color);
+}
+
+/* ------------------------------------------------------------------ */
+/* _lcd_draw_line(x0, y0, x1, y1, color565)                            */
+/* ------------------------------------------------------------------ */
+
+static void lcd_draw_line(int x0, int y0, int x1, int y1, uint16_t color)
+{
+  if (s_io == NULL) return;
+
+  /* Axis-aligned lines are common (UI borders) and cheaper as one run. */
+  if (y0 == y1) { lcd_hline(x0, x1, y0, color); return; }
+  if (x0 == x1) {
+    int ys = y0 < y1 ? y0 : y1;
+    int ye = y0 < y1 ? y1 : y0;
+    lcd_fill_rect_impl(x0, ys, 1, ye - ys + 1, color);
+    return;
+  }
+
+  /* Bresenham (integer, no division). */
+  int dx  = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+  int dy  = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+  int err = dx + dy;
+
+  for (;;) {
+    lcd_put_pixel(x0, y0, color);
+    if (x0 == x1 && y0 == y1) break;
+    int e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+
+static void c_lcd_draw_line(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int x0 = GET_INT_ARG(1);
+  int y0 = GET_INT_ARG(2);
+  int x1 = GET_INT_ARG(3);
+  int y1 = GET_INT_ARG(4);
+  uint16_t color = (uint16_t)GET_INT_ARG(5);
+
+  lcd_draw_line(x0, y0, x1, y1, color);
+}
+
+/* ------------------------------------------------------------------ */
+/* _lcd_draw_circle(cx, cy, r, color565, fill)                         */
+/* ------------------------------------------------------------------ */
+
+static void lcd_draw_circle(int cx, int cy, int r, uint16_t color, bool fill)
+{
+  if (s_io == NULL || r < 0) return;
+
+  /* Midpoint circle algorithm, integer-only (Wikipedia's compact form). */
+  int x = r, y = 0, err = 0;
+
+  while (x >= y) {
+    if (fill) {
+      lcd_hline(cx - x, cx + x, cy + y, color);
+      if (y != 0) lcd_hline(cx - x, cx + x, cy - y, color);
+      lcd_hline(cx - y, cx + y, cy + x, color);
+      if (x != 0) lcd_hline(cx - y, cx + y, cy - x, color);
+    } else {
+      lcd_put_pixel(cx + x, cy + y, color);
+      lcd_put_pixel(cx - x, cy + y, color);
+      lcd_put_pixel(cx + x, cy - y, color);
+      lcd_put_pixel(cx - x, cy - y, color);
+      lcd_put_pixel(cx + y, cy + x, color);
+      lcd_put_pixel(cx - y, cy + x, color);
+      lcd_put_pixel(cx + y, cy - x, color);
+      lcd_put_pixel(cx - y, cy - x, color);
+    }
+    y++;
+    err += 1 + 2 * y;
+    if (2 * (err - x) + 1 > 0) {
+      x--;
+      err += 1 - 2 * x;
+    }
+  }
+}
+
+static void c_lcd_draw_circle(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int cx = GET_INT_ARG(1);
+  int cy = GET_INT_ARG(2);
+  int r  = GET_INT_ARG(3);
+  uint16_t color = (uint16_t)GET_INT_ARG(4);
+  bool fill = GET_INT_ARG(5) != 0;
+
+  lcd_draw_circle(cx, cy, r, color, fill);
+}
+
+/* ------------------------------------------------------------------ */
+/* _lcd_draw_ellipse(cx, cy, a, b, color565, fill)                     */
+/* ------------------------------------------------------------------ */
+
+static void lcd_ellipse_plot(int cx, int cy, int x, int y, uint16_t color, bool fill)
+{
+  if (fill) {
+    lcd_hline(cx - x, cx + x, cy + y, color);
+    if (y != 0) lcd_hline(cx - x, cx + x, cy - y, color);
+  } else {
+    lcd_put_pixel(cx + x, cy + y, color);
+    lcd_put_pixel(cx - x, cy + y, color);
+    if (y != 0) {
+      lcd_put_pixel(cx + x, cy - y, color);
+      lcd_put_pixel(cx - x, cy - y, color);
+    }
+  }
+}
+
+static void lcd_draw_ellipse(int cx, int cy, int a, int b, uint16_t color, bool fill)
+{
+  if (s_io == NULL || a < 0 || b < 0) return;
+  if (a == 0 && b == 0) { lcd_put_pixel(cx, cy, color); return; }
+  if (a == 0) { lcd_fill_rect_impl(cx, cy - b, 1, 2 * b + 1, color); return; }
+  if (b == 0) { lcd_fill_rect_impl(cx - a, cy, 2 * a + 1, 1, color); return; }
+
+  /* Midpoint ellipse algorithm (two regions split at slope -1), integer
+   * radii with float decision terms — avoids the "flat tip" gaps a single
+   * naive sqrt-per-row loop produces near the major/minor axis ends. */
+  long a2 = (long)a * a;
+  long b2 = (long)b * b;
+
+  int x = 0, y = b;
+  long dx = 0, dy = 2 * a2 * y;
+  float d1 = (float)b2 - (float)a2 * b + 0.25f * (float)a2;
+
+  while (dx < dy) {
+    lcd_ellipse_plot(cx, cy, x, y, color, fill);
+    if (d1 < 0) {
+      x++;
+      dx += 2 * b2;
+      d1 += (float)dx + (float)b2;
+    } else {
+      x++;
+      y--;
+      dx += 2 * b2;
+      dy -= 2 * a2;
+      d1 += (float)dx - (float)dy + (float)b2;
+    }
+  }
+
+  float d2 = (float)b2 * ((float)x + 0.5f) * ((float)x + 0.5f)
+           + (float)a2 * (float)(y - 1) * (float)(y - 1)
+           - (float)a2 * (float)b2;
+
+  while (y >= 0) {
+    lcd_ellipse_plot(cx, cy, x, y, color, fill);
+    if (d2 > 0) {
+      y--;
+      dy -= 2 * a2;
+      d2 += (float)a2 - (float)dy;
+    } else {
+      y--;
+      x++;
+      dx += 2 * b2;
+      dy -= 2 * a2;
+      d2 += (float)dx - (float)dy + (float)a2;
+    }
+  }
+}
+
+static void c_lcd_draw_ellipse(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int cx = GET_INT_ARG(1);
+  int cy = GET_INT_ARG(2);
+  int a  = GET_INT_ARG(3);
+  int b  = GET_INT_ARG(4);
+  uint16_t color = (uint16_t)GET_INT_ARG(5);
+  bool fill = GET_INT_ARG(6) != 0;
+
+  lcd_draw_ellipse(cx, cy, a, b, color, fill);
 }
 
 /* ------------------------------------------------------------------ */
@@ -316,8 +513,11 @@ static void c_lcd_brightness(mrbc_vm *vm, mrbc_value v[], int argc)
 
 void register_lcd_methods(void)
 {
-  mrbc_define_method(0, mrbc_class_object, "_lcd_init",       c_lcd_init);
-  mrbc_define_method(0, mrbc_class_object, "_lcd_fill_rect",  c_lcd_fill_rect);
-  mrbc_define_method(0, mrbc_class_object, "_lcd_text",       c_lcd_text);
-  mrbc_define_method(0, mrbc_class_object, "_lcd_brightness", c_lcd_brightness);
+  mrbc_define_method(0, mrbc_class_object, "_lcd_init",         c_lcd_init);
+  mrbc_define_method(0, mrbc_class_object, "_lcd_fill_rect",    c_lcd_fill_rect);
+  mrbc_define_method(0, mrbc_class_object, "_lcd_text",         c_lcd_text);
+  mrbc_define_method(0, mrbc_class_object, "_lcd_brightness",   c_lcd_brightness);
+  mrbc_define_method(0, mrbc_class_object, "_lcd_draw_line",    c_lcd_draw_line);
+  mrbc_define_method(0, mrbc_class_object, "_lcd_draw_circle",  c_lcd_draw_circle);
+  mrbc_define_method(0, mrbc_class_object, "_lcd_draw_ellipse", c_lcd_draw_ellipse);
 }
