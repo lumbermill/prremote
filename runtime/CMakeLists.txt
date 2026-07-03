@@ -159,7 +159,7 @@ if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
     ${PICOSOCKET_DIR}/ports/rp2040/tcp_socket.c
     ${CMAKE_SOURCE_DIR}/src/net_helpers.c
     ${CMAKE_SOURCE_DIR}/src/mdns_resolver.c
-    ${PICOSOCKET_DIR}/src/mrubyc/tcp_socket.c
+    ${CMAKE_SOURCE_DIR}/src/tcp_socket_binding.c
     ${CMAKE_SOURCE_DIR}/src/socket_init.c
   )
   list(APPEND BOARD_INCLUDES ${PICOSOCKET_DIR}/include)
@@ -168,9 +168,12 @@ if(PICO_BOARD STREQUAL "pico_w" OR PICO_BOARD STREQUAL "pico2_w")
   list(APPEND BOARD_DEPS     cyw43_wrap_h socket_wrap_h time_wrap_h)
 
   # picoruby-socket sources include "picoruby.h"; inject compat header only for those files
+  # (tcp_socket_binding.c is the vendored copy of the submodule's
+  # src/mrubyc/tcp_socket.c — see its header comment — so it needs the same
+  # compat header as the upstream file it replaces)
   set_source_files_properties(
     ${PICOSOCKET_DIR}/ports/rp2040/tcp_socket.c
-    ${PICOSOCKET_DIR}/src/mrubyc/tcp_socket.c
+    ${CMAKE_SOURCE_DIR}/src/tcp_socket_binding.c
     ${CMAKE_SOURCE_DIR}/src/socket_init.c
     PROPERTIES COMPILE_OPTIONS "-include;${CMAKE_SOURCE_DIR}/src/picoruby_compat.h"
   )

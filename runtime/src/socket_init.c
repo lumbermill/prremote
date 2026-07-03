@@ -5,9 +5,10 @@
  *   mrbgems/picoruby-socket/mrblib/basic_socket.rb
  *   mrbgems/picoruby-socket/mrblib/tcp_socket.rb
  *
- * The C layer also uses picoruby-socket sources unchanged:
- *   mrbgems/picoruby-socket/src/mrubyc/tcp_socket.c   (VM bindings)
+ * The C layer uses the picoruby-socket port sources unchanged:
  *   mrbgems/picoruby-socket/ports/rp2040/tcp_socket.c  (lwip implementation)
+ * The TCP/UDP VM bindings are vendored copies with refcount fixes:
+ *   runtime/src/tcp_socket_binding.c / udp_socket_binding.c
  *
  * This file provides only the glue: mrbc_socket_init() is a trimmed copy of
  * picoruby-socket/src/mrubyc/socket.c — SSL/TCPServer stubs removed because

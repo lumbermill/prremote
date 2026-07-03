@@ -39,8 +39,11 @@ set(MRUBYC_SOURCES
 )
 
 # picoruby-socket: TCP/UDP over the ESP-IDF lwIP BSD socket API.
-# The ports/esp32 implementations and src/mrubyc VM bindings are taken from the
-# submodule unchanged; socket_init.c (runtime/src) is the prremote-local glue.
+# The ports/esp32 implementations are taken from the submodule unchanged;
+# socket_init.c (runtime/src) is the prremote-local glue.
+# The TCP/UDP VM bindings are vendored copies (tcp_socket_binding.c /
+# udp_socket_binding.c) because the upstream src/mrubyc files leak
+# references — see the header comments in those files for details.
 # socket.h is reached by explicit relative path (see runtime/src/picoruby.h and
 # socket_init.c) so picoruby-socket/include never needs to be on the include
 # path — that directory ships its own lwipopts.h (rp2040 raw API) which would
@@ -49,8 +52,8 @@ set(MRUBYC_SOURCES
 set(SOCKET_SOURCES
   ${PICOSOCKET}/ports/esp32/tcp_socket.c
   ${PICOSOCKET}/ports/esp32/udp_socket.c
-  ${PICOSOCKET}/src/mrubyc/tcp_socket.c
-  ${PICOSOCKET}/src/mrubyc/udp_socket.c
+  ${PRR_SRC}/tcp_socket_binding.c
+  ${PRR_SRC}/udp_socket_binding.c
   ${PRR_SRC}/socket_init.c
 )
 
