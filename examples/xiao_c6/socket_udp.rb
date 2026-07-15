@@ -16,8 +16,8 @@
 #       s.send(msg, 0, addr[3], addr[1])   # reply FROM :2000 TO the sender
 #     end
 
-WIFI_SSID = "360-raspi"
-WIFI_PASS = "raspberry"
+WIFI_SSID = "MySSID"
+WIFI_PASS = "MyPassword"
 HOST      = "raspi.local" # a .local mDNS name or a plain IP (e.g. "10.42.0.1")
 PORT      = 2000
 

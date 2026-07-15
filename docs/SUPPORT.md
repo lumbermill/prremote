@@ -26,8 +26,8 @@ prremote が対応しているボード × 機能の一覧と、リリース後�
 
 ✅ = 実装済み・実機確認済み / 🧪 = 実装済み・実機未確認 / — = 非対応（ハード非搭載 または 未実装）
 
-¹ esp32c6 は USB Serial/JTAG のため `esptool` 必須（`brew install esptool`）＋手動 bootloader モード（hold BOOT → press RST）。他ボードは追加ツール不要。
-² esp32c6 チップの I2C デフォルトピンは GPIO6/7 だが、XIAO のエッジパッド D4/D5 には出ていない。XIAO のシルク表記に合わせ、`examples/xiao_c6/i2c_scan.rb` は D4=GPIO22 / D5=GPIO23 を明示指定しており、実機で I2C デバイス検出を確認済み。
+¹ esp32c6 は USB Serial/JTAG のため `esptool` 必須（`brew install esptool`）。`--before usb-reset` によるハンズフリー書き込み（手動 hold BOOT → press RST はフォールバック時のみ）。他ボードは追加ツール不要。
+² esp32c6 チップの I2C デフォルトピンは GPIO6/7 だが JTAG 用で XIAO のエッジパッドに出ていないため、ランタイムのデフォルトを XIAO の D4=GPIO22 / D5=GPIO23 に変更済み。`examples/xiao_c6/i2c_scan.rb` は同ピンを明示指定しており、実機で I2C デバイス検出を確認済み。
 ³ MSP2807（ILI9341）は `LCD.new(invert: false, madctl: 0xE8)`。M5Stack ILI9342C は既定（INVON）。
 ⁴ esp32c6 の TCPSocket / UDPSocket は ESP-IDF lwIP の BSD ソケットで実装（picoruby-socket の ports/esp32 を流用）。ホスト名・`.local`（mDNS）解決は `getaddrinfo` 経由。UDP サンプルは [examples/xiao_c6/socket-udp.rb](../examples/xiao_c6/socket-udp.rb)。**両方とも XIAO ESP32C6 実機で疎通確認済み**（UDP: connect → send → recvfrom_nonblock、TCP: connect → write → read_nonblock/gets、いずれもエコーサーバと往復）。
 
@@ -77,14 +77,15 @@ PORT=/dev/tty.usbmodem101 SMOKE_WIFI=wk/wifi.rb rake "smoke[picow]"
 
 ### esp32c6（XIAO ESP32C6）
 
-- [ ] `install -b esp32c6` → esptool ＋ hold BOOT→press RST で書き込み、READY
+- [ ] `install -b esp32c6` → esptool（usb-reset、ハンズフリー）で書き込み、READY
 - auto: version / eval / wifi
 - [ ] `gpio.rb`: 黄色 LED（GPIO15）点滅、ボタン（GPIO2）で "pressed"
 - [ ] `led.rb`: 黄色 LED（`GPIO.led` → GPIO15 active-low）が点滅
 - [ ] `pwm.rb`: 黄色 LED（GPIO15）がブリージング（明→暗を繰り返す）
+- [ ] `pin_check.rb`: 隣接ペアをジャンパ直結し全ペア OK（配線はスクリプト冒頭コメント参照）
 - [ ] `spi_loopback.rb`: D10(MOSI/GPIO18)↔D9(MISO/GPIO20) をジャンパ直結で "OK: loopback matched"
 - [ ] `lcd_hello.rb`: MSP2807 が正立 320×240（`invert: false` / `madctl: 0xE8`）
-- [ ] `i2c_scan.rb`: ※デフォルトピン GPIO6/7 は実機未確定（[PLAN.md](../PLAN.md) 参照）
+- [ ] `i2c_scan.rb`: D4/D5 のセンサーが検出される（デフォルトピンも同じ 22/23 になった）
 - [ ] `ntp_clock.rb`: シリアルに JST が出る
 
 ---

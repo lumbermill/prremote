@@ -382,6 +382,21 @@ static spi_device_handle_t s_spi_dev[2];
 
 static spi_host_device_t spi_host(int n) { return n == 0 ? SPI2_HOST : SPI3_HOST; }
 
+#ifdef HAS_LCD
+void prr_lcd_release_spi(void);   /* lcd_ili9342c.c */
+#endif
+
+/* Called by the LCD driver so it can take its host (SPI3 on classic ESP32)
+ * over from the SPI class (see the ownership note in lcd_ili9342c.c). */
+void prr_spi_release_host(spi_host_device_t host)
+{
+  int unit = (host == SPI2_HOST) ? 0 : 1;
+  if (s_spi_dev[unit] == NULL) return;
+  spi_bus_remove_device(s_spi_dev[unit]);
+  spi_bus_free(host);
+  s_spi_dev[unit] = NULL;
+}
+
 /* _spi_init(unit_num, freq, sck, cipo, copi, mode) → unit_num */
 static void c_spi_init(mrbc_vm *vm, mrbc_value v[], int argc)
 {
@@ -401,6 +416,11 @@ static void c_spi_init(mrbc_vm *vm, mrbc_value v[], int argc)
     spi_bus_free(spi_host(unit_num));
     s_spi_dev[unit_num] = NULL;
   }
+#ifdef HAS_LCD
+  /* SPI3 (unit 1) is shared with the LCD driver; a previous script's
+   * LCD.new may still hold it (runs don't reset the chip). */
+  if (unit_num == 1) prr_lcd_release_spi();
+#endif
 
   spi_bus_config_t bus = {
     .sclk_io_num   = sck,

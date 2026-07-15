@@ -3,8 +3,8 @@
 # Wiring: none — WiFi is built-in.
 # Set SSID and PASSWORD before deploying.
 
-SSID     = "360-raspi"
-PASSWORD = "raspberry"
+SSID     = "MySSID"
+PASSWORD = "MyPassword"
 
 WiFi.init
 puts "Connecting to #{SSID}..."

@@ -3,7 +3,7 @@
 # No external wiring needed.
 #
 # The onboard LED is active-low: write 0 to turn on, 1 to turn off.
-# GPIO 15 is labeled D13 on the XIAO ESP32C6 pinout.
+# GPIO 15 has no D-numbered edge pad; it only drives the onboard LED.
 
 led = GPIO.new(15, GPIO::OUT)
 5.times do

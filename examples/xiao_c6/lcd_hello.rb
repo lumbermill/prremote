@@ -25,8 +25,8 @@
 #     For an upside-down (180°) landscape use madctl: 0x28.
 #   * If red shows up as blue, the panel is RGB not BGR — clear MADCTL bit 0x08
 #     (e.g. madctl: 0xE0).
-#   * D8/D9/D10 are confirmed on the XIAO silk; CS/DC/RST/BL pins above are the
-#     expected D3/D0/D1/D6 mapping — verify against your board if nothing shows.
+#   * The D-label <-> GPIO mapping above matches the official Seeed pinout
+#     (see examples/xiao_c6/pin_check.rb to re-verify a board with jumpers).
 
 lcd = LCD.new(invert: false, rotation: 0, madctl: 0xE8,
               sck_pin: 19, mosi_pin: 18, miso_pin: -1,

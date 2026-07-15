@@ -13,8 +13,12 @@
  *
  * SPI host: SPI3_HOST (VSPI) on ESP32 classic, SPI2_HOST on ESP32-C6 (which
  * has no SPI3). The panel bus therefore overlaps SPI.new(unit: 1) on classic
- * and SPI.new(unit: 0) on C6 — use the other unit for external SPI devices
- * while the LCD is active. */
+ * and SPI.new(unit: 0) on C6. Because `prremote run` never resets the chip,
+ * a bus grabbed by one script would stay taken forever, so ownership is
+ * handed over instead: LCD init evicts the SPI class from LCD_HOST via
+ * prr_spi_release_host(), and the SPI class evicts the LCD via
+ * prr_lcd_release_spi(). After eviction the loser's methods become no-ops
+ * (every LCD entry point checks s_io) until it is re-initialized. */
 
 #include <math.h>
 #include <stdlib.h>
@@ -62,6 +66,22 @@ static esp_lcd_panel_io_handle_t s_io;
 static int s_width;
 static int s_height;
 static int s_bl_pin = -1;
+
+/* Implemented by the board's bindings file: releases the SPI class's device
+ * and bus on `host` if it holds them, so the LCD can take the host over. */
+void prr_spi_release_host(spi_host_device_t host);
+
+/* Counterpart called by the SPI class binding: drop the panel IO and free
+ * LCD_HOST so SPI.new can claim it. Safe to call when the LCD was never
+ * initialized; afterwards LCD draw methods are no-ops until _lcd_init runs
+ * again. */
+void prr_lcd_release_spi(void)
+{
+  if (s_io == NULL) return;
+  esp_lcd_panel_io_del(s_io);
+  s_io = NULL;
+  spi_bus_free(LCD_HOST);
+}
 
 /* Two ping-pong buffers: esp_lcd_panel_io_tx_color() queues the transfer
  * (queue depth 1), so the buffer in flight must not be refilled until the
@@ -144,6 +164,9 @@ static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
     s_io = NULL;
     spi_bus_free(LCD_HOST);
   }
+  /* A previous script's SPI.new may still hold LCD_HOST (runs don't reset
+   * the chip); evict it or spi_bus_initialize below fails. */
+  prr_spi_release_host(LCD_HOST);
 
   /* Hardware reset (panel needs ≥10 µs low, then 120 ms to settle). */
   if (rst >= 0) {

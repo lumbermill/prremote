@@ -52,12 +52,22 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
     ENV.fetch('SMOKE_NTP', "examples/#{example_dir(board)}/ntp_clock.rb")
   end
 
+  # How long to let the (infinite) NTP clock stream before stopping it, long
+  # enough to see WiFi connect + first sync + a few ticks. Override with
+  # SMOKE_NTP_SECONDS.
+  def ntp_seconds
+    Integer(ENV.fetch('SMOKE_NTP_SECONDS', '25'))
+  end
+
   def auto(desc, cmd, expect)
     { kind: :auto, desc: desc, cmd: cmd, expect: expect }
   end
 
-  def eyeball(desc, cmd)
-    { kind: :eyeball, desc: desc, cmd: cmd }
+  # `timeout` (seconds) is for scripts that stream forever (an NTP clock loop):
+  # capture their output for that long, then stop them. Omit for scripts that
+  # end on their own.
+  def eyeball(desc, cmd, timeout: nil)
+    { kind: :eyeball, desc: desc, cmd: cmd, timeout: timeout }
   end
 
   def manual(desc)
@@ -98,7 +108,7 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
 
   def picow_steps(board)
     common_steps + wired_steps(board) + wifi_steps(board) + [
-      eyeball('ntp clock prints a synced time', "run #{ntp_script(board)}"),
+      eyeball('ntp clock prints a synced time', "run #{ntp_script(board)}", timeout: ntp_seconds),
       manual('LED: examples/pico/led.rb blinks the onboard LED')
     ]
   end
@@ -114,8 +124,8 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
   def esp32c6_steps(board)
     common_steps + wifi_steps(board) + [
       manual('GPIO: onboard yellow LED (GPIO15) blinks; button (GPIO2) prints "pressed"'),
-      eyeball('i2c scan — NOTE pins GPIO6/7, see PLAN.md C6 pin task', 'run examples/xiao_c6/i2c_scan.rb'),
-      eyeball('ntp clock prints synced JST over serial', "run #{ntp_script(board)}"),
+      eyeball('i2c scan finds a device on D4/D5 (GPIO22/23)', 'run examples/xiao_c6/i2c_scan.rb'),
+      eyeball('ntp clock prints synced JST over serial', "run #{ntp_script(board)}", timeout: ntp_seconds),
       manual('LCD: examples/xiao_c6/lcd_hello.rb (MSP2807) upright 320x240, invert:false madctl:0xE8')
     ]
   end
@@ -126,11 +136,43 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
     [full, out]
   end
 
+  # `prremote run` only returns when the device prints DONE. Scripts with an
+  # infinite loop (e.g. ntp_clock.rb, which ticks forever) never send it, so a
+  # plain capture blocks indefinitely. Capture output for `seconds`, then SIGINT
+  # the process group: run.rb catches Interrupt, sends the device \x03 to stop
+  # it, and exits. Returns whatever was printed, minus the interrupt backtrace.
+  def run_cmd_timed(cmd, seconds)
+    full = [BIN, global_opts, cmd].reject(&:empty?).join(' ')
+    buf = +''
+    Open3.popen2e(full, pgroup: true) do |_stdin, out, wait_thr|
+      reader = Thread.new { out.each_line { |line| buf << line } }
+      interrupt_group(wait_thr.pid) if reader.join(seconds).nil?
+      reader.join
+      wait_thr.value
+    end
+    [full, strip_interrupt_noise(buf)]
+  end
+
+  def interrupt_group(pid)
+    Process.kill('INT', -Process.getpgid(pid))
+  rescue Errno::ESRCH, Errno::EPERM
+    nil
+  end
+
+  # Drop the trailing Ruby interrupt backtrace left by the SIGINT so the
+  # eyeball output shows only the device's own lines.
+  def strip_interrupt_noise(out)
+    lines = out.lines
+    lines.pop while lines.last&.match?(%r{Interrupt\b|^\s+from |:\d+:in |bin/prremote|lib/prremote})
+    lines.join
+  end
+
   def run_eyeball(step, manual)
-    full, out = run_cmd(step[:cmd])
+    full, out = step[:timeout] ? run_cmd_timed(step[:cmd], step[:timeout]) : run_cmd(step[:cmd])
     puts "• #{step[:desc]}"
     puts "    $ #{full}"
     out.each_line { |line| puts "    | #{line.chomp}" }
+    puts "    (stopped after #{step[:timeout]}s — this script loops forever)" if step[:timeout]
     manual << "confirm the output above — #{step[:desc]}"
   end
 

@@ -36,41 +36,16 @@ mruby/c には `Timeout` モジュールもスレッドもないため Ruby 層�
 
 現実的には維持コストの観点から、ここから先はエコシステムが分散してテスト・リリース管理の負担が重くなる。
 
-## XIAO ESP32C6 の周辺ピン確定（要・実機 + I2C デバイス）
+## LCD 図形描画（draw_line/circle/ellipse）の実機目視（残）
 
-XIAO のシルク（D0-D10）と GPIO 番号の対応を実機で確定し、全 examples のピンを揃える。
-Seeed XIAO ESP32C6 の想定対応（D2/GPIO2・LED/GPIO15 以外は未検証）:
+C 実装の `LCD#draw_line` / `#draw_circle` / `#draw_ellipse` は 0.3.0 でビルド確認済みだが、
+実パネルでの見た目（斜め線の連続性・円/楕円の輪郭欠け・fill のベタ塗り）は未目視。
+検証用スクリプトは [wk/lcd_shapes_c6.rb](../wk/lcd_shapes_c6.rb)（MSP2807 を lcd_hello.rb と同じ配線で接続）。
+M5GO 用は [examples/m5go/lcd_shapes.rb](../examples/m5go/lcd_shapes.rb)。
+（XIAO ESP32C6 の pin_check / pwm / spi_loopback / I2C デフォルト / WiFi・NTP は 0.3.0 で実機検証済み。）
 
-| シルク | GPIO | 用途 |
-|---|---|---|
-| D0/A0 | GPIO0 | |
-| D1/A1 | GPIO1 | |
-| D2/A2 | GPIO2 | ボタン例で確認済み |
-| D3 | GPIO21 | |
-| D4/SDA | GPIO22 | I2C SDA・`i2c_scan.rb` で確認済み |
-| D5/SCL | GPIO23 | I2C SCL・`i2c_scan.rb` で確認済み |
-| D6/TX | GPIO16 | |
-| D7/RX | GPIO17 | |
-| D8/SCK | GPIO19 | |
-| D9/MISO | GPIO20 | |
-| D10/MOSI | GPIO18 | |
-| (LED) | GPIO15 | オンボード黄色 LED（確認済み） |
-
-- ランタイムの C6 デフォルト I2C/SPI ピン（CHANGELOG: SDA=6/SCL=7, SCK=19/MOSI=18）も XIAO 実シルクに
-  合わせるか要検討（デフォルトを XIAO 基準にするか、チップ汎用のままにするか）。
-- **`wifi.rb` / `ntp_clock.rb`**: ピン依存はないが C6 での WiFi 接続・NTP 同期は実機未確認
-  （M5GO=ESP32 classic では確認済みだが C6 は別チップ）。
-
-## XIAO ESP32C6 の PWM / SPI サンプル（追加済み・実機未検証）
-
-`examples/xiao_c6/` に `pwm.rb` / `spi_loopback.rb` を追加済み。いずれもピン確定（上記の D↔GPIO 表）後に
-実機検証する。
-
-- **`pwm.rb`（PWM）**: オンボード黄色 LED（GPIO15）を PWM でブリージング。active-low の反転はスクリプト内で
-  吸収。余裕があれば外部 LED 版（明るさ）・サーボ版（50Hz / duty で角度）も検討。
-- **`spi_loopback.rb`（SPI 自己テスト）**: **MOSI→MISO をジャンパ直結**したループバックで `transfer` が
-  エコーを返すことを確認。C6 デフォルトは SPI2_HOST・SCK=GPIO19(D8) / MOSI=GPIO18(D10) / MISO=GPIO20(D9)。
-  実デバイス版（SPI フラッシュや SD の JEDEC ID 読み出し）はデバイスが手に入ってから別途。
+余裕があれば PWM の外部 LED 版（明るさ）・サーボ版（50Hz / duty で角度）、
+SPI の実デバイス版（フラッシュ / SD の JEDEC ID 読み出し）サンプルも追加検討。
 
 ## classic esp32（M5GO）への TCP/UDPSocket 展開（任意）
 

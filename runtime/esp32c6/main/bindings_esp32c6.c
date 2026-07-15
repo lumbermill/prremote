@@ -6,7 +6,7 @@
  *   ADC     — ADC1 is on GPIO 0-6 (not 32-39); adc_oneshot_io_to_channel()
  *              handles the mapping; only the error message changes.
  *   PWM     — ESP32-C6 LEDC has 6 channels (not 8); PWM_SLOTS reduced to 6.
- *   I2C     — XIAO default pins: SDA=6 (D4), SCL=7 (D5).
+ *   I2C     — XIAO default pins: SDA=22 (D4), SCL=23 (D5).
  *   SPI     — ESP32-C6 only has SPI2_HOST; SPI3_HOST does not exist.
  *             XIAO default pins: SCK=19 (D8), MOSI=18 (D10).
  *   LCD     — HAS_LCD is defined; the shared ILI9342C/ILI9341 driver
@@ -313,9 +313,12 @@ static void c_i2c_init(mrbc_vm *vm, mrbc_value v[], int argc)
   int      sda      = GET_INT_ARG(3);
   int      scl      = GET_INT_ARG(4);
 
-  /* XIAO ESP32C6 I2C pins: D4=GPIO6 (SDA), D5=GPIO7 (SCL). */
-  if (sda < 0) sda = 6;
-  if (scl < 0) scl = 7;
+  /* XIAO ESP32C6 I2C pins: D4=GPIO22 (SDA), D5=GPIO23 (SCL).
+   * The chip-level defaults (GPIO6/7) are JTAG pins that aren't broken out
+   * on the XIAO edge pads, so default to the board's silkscreened I2C pins
+   * instead (matching the SPI defaults below, which are XIAO-based too). */
+  if (sda < 0) sda = 22;
+  if (scl < 0) scl = 23;
 
   esp_log_level_set("i2c.master", ESP_LOG_NONE);
 
@@ -413,6 +416,20 @@ static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 
 static spi_device_handle_t s_spi_dev[2];
 
+#ifdef HAS_LCD
+void prr_lcd_release_spi(void);   /* esp32/main/lcd_ili9342c.c */
+#endif
+
+/* Called by the LCD driver so it can take the host over from the SPI class
+ * (see the ownership note in esp32/main/lcd_ili9342c.c). */
+void prr_spi_release_host(spi_host_device_t host)
+{
+  if (host != SPI2_HOST || s_spi_dev[0] == NULL) return;
+  spi_bus_remove_device(s_spi_dev[0]);
+  spi_bus_free(SPI2_HOST);
+  s_spi_dev[0] = NULL;
+}
+
 static void c_spi_init(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int unit_num = GET_INT_ARG(1) ? 1 : 0;
@@ -437,6 +454,11 @@ static void c_spi_init(mrbc_vm *vm, mrbc_value v[], int argc)
     spi_bus_free(SPI2_HOST);
     s_spi_dev[unit_num] = NULL;
   }
+#ifdef HAS_LCD
+  /* The C6's single SPI host is shared with the LCD driver; a previous
+   * script's LCD.new may still hold it (runs don't reset the chip). */
+  prr_lcd_release_spi();
+#endif
 
   spi_bus_config_t bus = {
     .sclk_io_num   = sck,
