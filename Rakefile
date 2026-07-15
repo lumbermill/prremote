@@ -36,11 +36,14 @@ task :setup do
     echo '→ rubocop'
     bundle exec rubocop
     echo '→ wifi credential check'
-    bad=$(git grep -hE '^(SSID|PASSWORD) *=' HEAD -- examples | grep -vE 'My(SSID|Password)' || true)
+    # Catches SSID/PASSWORD and prefixed forms like WIFI_SSID/WIFI_PASS; only
+    # the placeholders My(SSID|Password) are allowed. Use `rake wk:sync` to get
+    # credentialed copies under wk/ instead of editing the tracked samples.
+    bad=$(git grep -hE '^[A-Z_]*(SSID|PASS(WORD)?) *=' HEAD -- examples | grep -vE 'My(SSID|Password)' || true)
     if [ -n "$bad" ]; then
       echo 'Non-placeholder WiFi credentials committed in examples/:'
       echo "$bad"
-      echo 'Replace with SSID = "MySSID" / PASSWORD = "MyPassword" before pushing.'
+      echo 'Replace with the "MySSID" / "MyPassword" placeholders before pushing.'
       exit 1
     fi
   SH
