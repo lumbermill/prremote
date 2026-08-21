@@ -17,8 +17,10 @@ i2c.write(0x34, 0x28, 0xCC)                 # LDO2/LDO3 voltage = 3.0V
 cur = i2c.read(0x34, 1, 0x12).getbyte(0)
 i2c.write(0x34, 0x12, cur | 0x4D)           # enable Ext, LDO2, LDO3, DCDC1
 
+# madctl: 0x00 — see lcd_hello.rb; this ST7789 wants plain RGB, not the
+# BGR the default table assumes for the ILI9342C (M5GO).
 lcd = LCD.new(sck_pin: 13, mosi_pin: 15, miso_pin: -1, cs_pin: 5, dc_pin: 23,
-              rst_pin: 18, bl_pin: -1, invert: true,
+              rst_pin: 18, bl_pin: -1, invert: true, madctl: 0x00,
               width: 135, height: 240, offset_x: 52, offset_y: 40)
 lcd.fill(LCD::BLACK)
 lcd.text(4, 4, "Connecting...", scale: 1)
