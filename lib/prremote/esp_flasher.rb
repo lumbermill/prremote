@@ -20,6 +20,7 @@ module Prremote
     FLASH_DATA     = 0x03
     FLASH_END      = 0x04
     SYNC           = 0x08
+    READ_REG       = 0x0A
     SPI_SET_PARAMS = 0x0B
     SPI_ATTACH     = 0x0D
     CHANGE_BAUD    = 0x0F
@@ -31,6 +32,16 @@ module Prremote
 
     # Boards with built-in USB Serial/JTAG — flashed via esptool subprocess.
     USB_JTAG_SERIAL_BOARDS = %w[esp32c6].freeze
+
+    # Classic ESP32 ROM only auto-attaches flash on modules with pads wired
+    # to the default HSPI pins. SiP packages with in-package flash (e.g.
+    # ESP32-PICO-D4, used on M5StickC/PLUS) route flash through pins burned
+    # into eFuse instead, and FLASH_BEGIN silently hangs forever (no error
+    # response) if SPI_ATTACH(0) is sent on those. Mirrors esptool's
+    # attach_flash()/get_chip_spi_pads() (cmds.py / targets/esp32.py).
+    EFUSE_RD_REG_BASE          = 0x3FF5A000
+    EFUSE_BLK0_RDATA3_REG_OFFS = EFUSE_RD_REG_BASE + 0x00C
+    EFUSE_BLK0_RDATA5_REG_OFFS = EFUSE_RD_REG_BASE + 0x014
 
     # ROM status-byte count: classic ESP32 appends 4 bytes, RISC-V chips 2.
     STATUS_BYTES_BY_BOARD = Hash.new(4).freeze
@@ -47,14 +58,13 @@ module Prremote
     TIOCM_RTS = 0x0004
     DARWIN    = RbConfig::CONFIG['host_os'] =~ /darwin/ ? true : false
     TIOCMGET  = DARWIN ? 0x4004746A : 0x5415
-    TIOCMBIS  = DARWIN ? 0x8004746E : 0x5416
-    TIOCMBIC  = DARWIN ? 0x8004746F : 0x5417
+    TIOCMSET  = DARWIN ? 0x8004746D : 0x5418
 
     class Error < RuntimeError; end
 
     # Entry point.  Routes USB-JTAG/Serial boards through esptool; handles
     # classic ESP32 with the pure-Ruby protocol implementation.
-    def self.flash(port:, image_path:, baud: 230_400, board: nil, verbose: false)
+    def self.flash(port:, image_path:, baud: ROM_BAUD, board: nil, verbose: false)
       if USB_JTAG_SERIAL_BOARDS.include?(board)
         return flash_via_esptool(port: port, image_path: image_path, board: board,
                                  verbose: verbose)
@@ -214,7 +224,8 @@ module Prremote
     end
 
     def write_flash(image, offset: 0)
-      spi_attach_payload = SPI_ATTACH_LEGACY_BOARDS.include?(@board) ? [0, 0].pack('V2') : [0].pack('V')
+      hspi_arg = SPI_ATTACH_LEGACY_BOARDS.include?(@board) ? efuse_spi_attach_arg : 0
+      spi_attach_payload = SPI_ATTACH_LEGACY_BOARDS.include?(@board) ? [hspi_arg, 0].pack('V2') : [hspi_arg].pack('V')
       command(SPI_ATTACH, spi_attach_payload)
       # id, total_size, block_size, sector_size, page_size, status_mask
       command(SPI_SET_PARAMS, [0, 4 * 1024 * 1024, 64 * 1024, 4096, 256, 0xFFFF].pack('V6'))
@@ -245,6 +256,30 @@ module Prremote
       return if device_md5 == local_md5
 
       raise Error, "MD5 mismatch after flashing (device #{device_md5}, local #{local_md5})"
+    end
+
+    # SPI_ATTACH(0) only works for modules with flash on the default HSPI
+    # pins. In-package flash (ESP32-PICO-D4/V3, e.g. M5StickC/PLUS) needs its
+    # actual pin numbers, burned into eFuse, packed into SPI_ATTACH's arg.
+    # Returns 0 (the "use default pins" value) when eFuse has nothing burned.
+    def efuse_spi_attach_arg
+      rdata5 = read_reg(EFUSE_BLK0_RDATA5_REG_OFFS)
+      clk    = rdata5 & 0x1F
+      q      = (rdata5 >> 5) & 0x1F
+      d      = (rdata5 >> 10) & 0x1F
+      cs     = (rdata5 >> 15) & 0x1F
+      hd     = (read_reg(EFUSE_BLK0_RDATA3_REG_OFFS) >> 4) & 0x1F
+
+      return 0 if [clk, q, d, hd, cs].all?(&:zero?)
+
+      vlog format('in-package flash detected (CLK:%<clk>d Q:%<q>d D:%<d>d HD:%<hd>d CS:%<cs>d)',
+                  clk: clk, q: q, d: d, hd: hd, cs: cs)
+      (hd << 24) | (cs << 18) | (d << 12) | (q << 6) | clk
+    end
+
+    def read_reg(addr)
+      value, = command(READ_REG, [addr].pack('V'))
+      value
     end
 
     # ── request/response plumbing ──────────────────────────────────────────
@@ -335,12 +370,21 @@ module Prremote
       loop { break if read_frame(deadline).nil? }
     end
 
+    # Sets DTR and RTS together via a single TIOCMSET, matching esptool's
+    # UnixTightReset. Two separate TIOCMBIS/TIOCMBIC calls (the classic-reset
+    # approach) send DTR and RTS as separate USB control-line-state requests;
+    # some USB-serial adapters (seen with CP2104 on M5StickC PLUS) glitch the
+    # boot ROM's auto-reset during that gap.
     def set_lines(dtr:, rts:)
       return if @fd.nil?
 
-      io = IO.for_fd(@fd, autoclose: false)
-      io.ioctl(dtr ? TIOCMBIS : TIOCMBIC, [TIOCM_DTR].pack('L'))
-      io.ioctl(rts ? TIOCMBIS : TIOCMBIC, [TIOCM_RTS].pack('L'))
+      io  = IO.for_fd(@fd, autoclose: false)
+      buf = [0].pack('L')
+      io.ioctl(TIOCMGET, buf)
+      status = buf.unpack1('L')
+      status = dtr ? (status | TIOCM_DTR) : (status & ~TIOCM_DTR)
+      status = rts ? (status | TIOCM_RTS) : (status & ~TIOCM_RTS)
+      io.ioctl(TIOCMSET, [status].pack('L'))
     rescue StandardError
       nil
     end

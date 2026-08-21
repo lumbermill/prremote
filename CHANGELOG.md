@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-07-15
+### Fixed
+
+- Runtime install (**esp32**, `lib/prremote/esp_flasher.rb`): `install --board esp32` no longer fails with `could not sync with the ESP boot ROM` or hangs forever on `FLASH_BEGIN` on boards with in-package flash (ESP32-PICO-D4/V3, e.g. M5StickC / M5StickC PLUS). Two separate bugs, both found flashing a physical M5StickC PLUS:
+  - `set_lines` toggled DTR and RTS via two separate `TIOCMBIS`/`TIOCMBIC` ioctls, sent to the USB-serial adapter as two separate control-line-state requests. On this board's CP2104 the gap between them was enough to glitch the boot ROM's auto-reset, so `sync!` needed several retries and sometimes exhausted all 8 — mirrors esptool's `ClassicReset` vs `UnixTightReset`. Now both lines are read (`TIOCMGET`) and written (`TIOCMSET`) together in one ioctl.
+  - `SPI_ATTACH` was always sent with arg `0` ("use default HSPI pins"), which the classic-ESP32 ROM only honors for modules with flash wired externally. Modules with in-package flash (this board's ESP32-PICO-D4) route flash through pins burned into eFuse instead; sending `0` leaves flash un-attached and the ROM never responds to the following `FLASH_BEGIN` (no error — just silence, so a timeout is the only symptom, however long it's set to). `EspFlasher` now reads the eFuse SPI-pad registers and packs them into `SPI_ATTACH`'s arg when set (mirrors esptool's `attach_flash`/`get_chip_spi_pads`); boards with external flash (M5GO) read all-zero eFuses and get the same `0` as before, so behavior there is unchanged.
+  - `EspFlasher.flash`'s default baud dropped from 230400 to 115200 (`ROM_BAUD`): the 230400 upgrade path made this board's serial link unreliable (commands after the upgrade stopped getting responses), and install-time flashing doesn't need the speed badly enough to trade away reliability for it.
+  - _Verified on a physical M5StickC PLUS (ESP32-PICO-D4): `install --board esp32` completes, then `version` and `eval "puts 6*7"` both respond correctly._
+
+### Added
+
+- Runtime (**esp32**, `runtime/esp32/main/lcd_ili9342c.c` + `runtime/src/lcd_wrap.rb`): `LCD.new` gained `width:`/`height:`/`offset_x:`/`offset_y:` so the ILI9342C/ILI9341 driver also drives ST7789-class panels whose visible area is smaller than the controller's RAM window — e.g. the M5StickC/PLUS's 135x240 ST7789v2 sitting inside a 240x320 window at offset (52, 40). `_lcd_init` now takes the panel's own width/height and CASET/RASET offset instead of assuming the ILI9342C's fixed 320x240/0,0; `LCD#width`/`#height` report the actual (rotation-adjusted) resolution instead of the old fixed `WIDTH`/`HEIGHT` constants (kept as the M5GO-matching defaults). Existing callers are unaffected: omitting the new args keeps the previous 320x240/no-offset behavior exactly (M5GO, XIAO ESP32C6 built and pass rubocop/tests unchanged).
+- Example: `examples/m5stickc_plus/lcd_hello.rb` — LCD hello world for the M5StickC PLUS. Unlike M5GO the backlight/panel power isn't a GPIO pin — the AXP192 PMIC (I2C `0x34`) needs its LDO2/LDO3 rails enabled first (reg `0x28` = `0xCC`, reg `0x12` OR `0x4D`), done here via the existing `I2C` class with no new C code. _Verified on a physical M5StickC PLUS: text and a fill bar render correctly, right-side-up, no offset/cropping._
 
 ### Added
 

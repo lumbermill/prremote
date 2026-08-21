@@ -1,15 +1,19 @@
-/* ILI9342C LCD driver and _lcd_* bindings (ESP32 builds).
+/* ILI9342C/ST7789-class LCD driver and _lcd_* bindings (ESP32 builds).
  *
- * Targets the M5GO / M5Stack Core gen1 panel (320x240 on VSPI) but all pins
- * are parameterized through _lcd_init, so any ILI9342C/ILI9341-class panel
- * wired to the GPIO matrix works. No full framebuffer: pixels are streamed
- * through two small ping-pong DMA buffers, so a fill or a text cell is the
- * largest single allocation (2 KB).
+ * Targets the M5GO / M5Stack Core gen1 panel (320x240 on VSPI) but all pins,
+ * panel size, and RAM offset are parameterized through _lcd_init, so any
+ * ILI9342C/ILI9341/ST7789-class panel wired to the GPIO matrix works — e.g.
+ * the M5StickC/PLUS's ST7789v2 (135x240, offset 52,40, active area sitting
+ * inside a larger 240x320 RAM window; both controllers share the same
+ * SWRESET/SLPOUT/COLMOD/MADCTL/INVON/DISPON command set). No full
+ * framebuffer: pixels are streamed through two small ping-pong DMA buffers,
+ * so a fill or a text cell is the largest single allocation (2 KB).
  *
  * Init command sequence follows M5GFX's Panel_ILI9342
  * (https://github.com/m5stack/M5GFX). M5Stack ILI9342C panels show inverted
  * colors unless INVON is set; standard ILI9341 panels (e.g. MSP2807) want
- * INVOFF. The _lcd_init `invert` argument selects between them.
+ * INVOFF; ST7789 panels (M5StickC/PLUS) also want INVON. The _lcd_init
+ * `invert` argument selects between them.
  *
  * SPI host: SPI3_HOST (VSPI) on ESP32 classic, SPI2_HOST on ESP32-C6 (which
  * has no SPI3). The panel bus therefore overlaps SPI.new(unit: 1) on classic
@@ -66,6 +70,8 @@ static esp_lcd_panel_io_handle_t s_io;
 static int s_width;
 static int s_height;
 static int s_bl_pin = -1;
+static int s_offset_x;
+static int s_offset_y;
 
 /* Implemented by the board's bindings file: releases the SPI class's device
  * and bus on `host` if it holds them, so the LCD can take the host over. */
@@ -100,8 +106,14 @@ static void lcd_cmd(uint8_t cmd, const uint8_t *data, size_t len)
   esp_lcd_panel_io_tx_param(s_io, cmd, data, len);
 }
 
+/* Takes panel-local coordinates; the eventual CASET/RASET wire values are
+ * offset by s_offset_x/y. Some controllers (e.g. ST7789 on M5StickC/PLUS,
+ * whose 135x240 active area sits inside a 240x320 RAM window) are wired up
+ * with a nonzero offset; ILI9342C panels (M5GO) use 0. */
 static void lcd_set_window(int x0, int y0, int x1, int y1)
 {
+  x0 += s_offset_x; x1 += s_offset_x;
+  y0 += s_offset_y; y1 += s_offset_y;
   uint8_t caset[4] = { x0 >> 8, x0 & 0xFF, x1 >> 8, x1 & 0xFF };
   uint8_t raset[4] = { y0 >> 8, y0 & 0xFF, y1 >> 8, y1 & 0xFF };
   lcd_cmd(0x2A, caset, 4);   /* CASET */
@@ -143,7 +155,8 @@ static void lcd_set_brightness(int pct)
 }
 
 /* ------------------------------------------------------------------ */
-/* _lcd_init(rotation, sck, mosi, miso, cs, dc, rst, bl) → true/false  */
+/* _lcd_init(rotation, sck, mosi, miso, cs, dc, rst, bl, invert,        */
+/*           madctl, panel_w, panel_h, offset_x, offset_y) → true/false */
 /* ------------------------------------------------------------------ */
 
 static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -158,6 +171,10 @@ static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
   int bl       = GET_INT_ARG(8);
   int invert   = GET_INT_ARG(9);
   int madctl_arg = GET_INT_ARG(10);   /* <0: use the per-rotation table */
+  int panel_w  = GET_INT_ARG(11);
+  int panel_h  = GET_INT_ARG(12);
+  int offset_x = GET_INT_ARG(13);
+  int offset_y = GET_INT_ARG(14);
 
   if (s_io != NULL) {
     esp_lcd_panel_io_del(s_io);
@@ -217,8 +234,10 @@ static void c_lcd_init(mrbc_vm *vm, mrbc_value v[], int argc)
   static const uint8_t madctl[4] = { 0x08, 0x68, 0xC8, 0xA8 };
   uint8_t mad = (madctl_arg >= 0) ? (uint8_t)madctl_arg : madctl[rotation];
   bool swap = (rotation & 1) != 0;
-  s_width  = swap ? 240 : 320;
-  s_height = swap ? 320 : 240;
+  s_width    = swap ? panel_h : panel_w;
+  s_height   = swap ? panel_w : panel_h;
+  s_offset_x = swap ? offset_y : offset_x;
+  s_offset_y = swap ? offset_x : offset_y;
 
   lcd_cmd(0x01, NULL, 0);                          /* SWRESET */
   vTaskDelay(pdMS_TO_TICKS(120));

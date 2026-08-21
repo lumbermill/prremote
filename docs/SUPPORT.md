@@ -10,7 +10,7 @@ prremote が対応しているボード × 機能の一覧と、リリース後�
 
 | 機能 | pico | picow | pico2 (RP2350) | esp32 (M5GO) | esp32c6 (XIAO) |
 |---|:--:|:--:|:--:|:--:|:--:|
-| install（書き込み） | ✅ UF2 | ✅ UF2 | ✅ UF2 | ✅ EspFlasher | ✅ esptool¹ |
+| install（書き込み） | ✅ UF2 | ✅ UF2 | ✅ UF2 | ✅ EspFlasher⁵ | ✅ esptool¹ |
 | run / eval / watch | ✅ | ✅ | ✅ | ✅ | ✅ |
 | deploy / undeploy | ✅ | ✅ | ✅ | ✅ | ✅ |
 | GPIO | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -22,7 +22,7 @@ prremote が対応しているボード × 機能の一覧と、リリース後�
 | NTP（時刻同期） | — | ✅ | — | ✅ | ✅ |
 | TCPSocket | — | ✅ | — | — | ✅⁴ |
 | UDPSocket | — | — | — | — | ✅⁴ |
-| LCD | — | — | — | ✅ ILI9342C | ✅ ILI9341³ |
+| LCD | — | — | — | ✅ ILI9342C⁵ | ✅ ILI9341³ |
 
 ✅ = 実装済み・実機確認済み / 🧪 = 実装済み・実機未確認 / — = 非対応（ハード非搭載 または 未実装）
 
@@ -30,6 +30,7 @@ prremote が対応しているボード × 機能の一覧と、リリース後�
 ² esp32c6 チップの I2C デフォルトピンは GPIO6/7 だが JTAG 用で XIAO のエッジパッドに出ていないため、ランタイムのデフォルトを XIAO の D4=GPIO22 / D5=GPIO23 に変更済み。`examples/xiao_c6/i2c_scan.rb` は同ピンを明示指定しており、実機で I2C デバイス検出を確認済み。
 ³ MSP2807（ILI9341）は `LCD.new(invert: false, madctl: 0xE8)`。M5Stack ILI9342C は既定（INVON）。
 ⁴ esp32c6 の TCPSocket / UDPSocket は ESP-IDF lwIP の BSD ソケットで実装（picoruby-socket の ports/esp32 を流用）。ホスト名・`.local`（mDNS）解決は `getaddrinfo` 経由。UDP サンプルは [examples/xiao_c6/socket-udp.rb](../examples/xiao_c6/socket-udp.rb)。**両方とも XIAO ESP32C6 実機で疎通確認済み**（UDP: connect → send → recvfrom_nonblock、TCP: connect → write → read_nonblock/gets、いずれもエコーサーバと往復）。
+⁵ M5StickC PLUS（ESP32-PICO-D4、内蔵フラッシュ）は同じ esp32 ランタイムで動く。install は eFuse の SPI pad 設定を読んで SPI_ATTACH するようになったため M5GO と同じ `EspFlasher` で書き込める（内蔵フラッシュ機は以前 `SPI_ATTACH(0)` だと `FLASH_BEGIN` が無応答のままハングしていた）。LCD は ST7789v2 135x240 で `LCD.new` に `width:`/`height:`/`offset_x:`/`offset_y:` を渡す（`examples/m5stickc_plus/lcd_hello.rb` 参照）。バックライト/パネル電源は GPIO PWM ではなく AXP192（I2C アドレス `0x34`）の LDO2/LDO3 で、明示的な有効化が要る。**install と LCD のみ実機確認済み**（M5StickC PLUS）。GPIO/ADC/PWM/I2C/SPI/WiFi/NTP 等その他の機能は未検証で、独立したボード列としてはまだ扱っていない。
 
 ## Post-release smoke test
 
