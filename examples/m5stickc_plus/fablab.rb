@@ -1,7 +1,8 @@
 # Device: M5StickC PLUS (ESP32-PICO-D4)
 # A joke sample: "Fablab" filling the screen, rotated 90° clockwise (hold
-# the stick upright, text reads top-to-bottom). Press button A to blink to
-# a new color.
+# the stick upright, text reads top-to-bottom). Press button A to blink the
+# text to a new color; press button B to blink the background instead —
+# handy as a visual "which button did I just press?" check.
 #
 # Wiring: none — everything built-in. See lcd_hello.rb for the AXP192
 # power-on this panel needs before it'll show anything.
@@ -18,37 +19,44 @@ lcd = LCD.new(rotation: 3, sck_pin: 13, mosi_pin: 15, miso_pin: -1, cs_pin: 5,
               width: 135, height: 240, offset_x: 52, offset_y: 40)
 
 btn_a = GPIO.new(37, GPIO::IN)
+btn_b = GPIO.new(39, GPIO::IN)
 
-COLORS = [LCD::CYAN, LCD::YELLOW, LCD::MAGENTA, LCD::GREEN, LCD::ORANGE, LCD::WHITE, LCD::RED]
-TEXT   = "Fablab"
-SCALE  = 4
-CELL   = 8 * SCALE
+FG_COLORS = [LCD::CYAN, LCD::YELLOW, LCD::MAGENTA, LCD::GREEN, LCD::ORANGE, LCD::WHITE, LCD::RED]
+BG_COLORS = [LCD::BLACK, LCD::BLUE]
+TEXT      = "Fablab"
+SCALE     = 4
+CELL      = 8 * SCALE
 X = (lcd.width  - TEXT.length * CELL) / 2
 Y = (lcd.height - CELL) / 2
 
-def show(lcd, color)
-  lcd.fill(LCD::BLACK)
-  lcd.text(X, Y, TEXT, color: color, scale: SCALE)
+def show(lcd, fg, bg)
+  lcd.fill(bg)
+  lcd.text(X, Y, TEXT, color: fg, bg: bg, scale: SCALE)
 end
 
-def blink(lcd, color)
+def blink(lcd, flash, fg, bg)
   3.times do
-    lcd.fill(color)
+    lcd.fill(flash)
     sleep 0.08
-    lcd.fill(LCD::BLACK)
+    lcd.fill(bg)
     sleep 0.08
   end
-  show(lcd, color)
+  show(lcd, fg, bg)
 end
 
-idx = 0
-show(lcd, COLORS[idx])
+fg_idx = 0
+bg_idx = 0
+show(lcd, FG_COLORS[fg_idx], BG_COLORS[bg_idx])
 
 loop do
   if btn_a.read == 0
-    idx = (idx + 1) % COLORS.length
-    blink(lcd, COLORS[idx])
+    fg_idx = (fg_idx + 1) % FG_COLORS.length
+    blink(lcd, FG_COLORS[fg_idx], FG_COLORS[fg_idx], BG_COLORS[bg_idx])
     sleep 0.05 while btn_a.read == 0 # wait for release (debounce)
+  elsif btn_b.read == 0
+    bg_idx = (bg_idx + 1) % BG_COLORS.length
+    blink(lcd, FG_COLORS[fg_idx], FG_COLORS[fg_idx], BG_COLORS[bg_idx])
+    sleep 0.05 while btn_b.read == 0
   end
   sleep 0.02
 end
