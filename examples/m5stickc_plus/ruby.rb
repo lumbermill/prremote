@@ -43,8 +43,8 @@ TEXT_X = ROW_X + ICON_W + ICON_GAP
 
 Y      = (lcd.height - (CELL + GAP + SUB_CELL)) / 2
 Y2     = Y + CELL + GAP
-ICON_Y = Y + (CELL - ICON_H) / 2
-X2     = (lcd.width - SUB.length * SUB_CELL) / 2
+ICON_Y = Y + ((CELL - ICON_H) / 2)
+X2     = (lcd.width - (SUB.length * SUB_CELL)) / 2
 
 # Small faceted gem: flat top crown widening to the shoulder, then
 # tapering to a point — same idea as the ntp_clock.rb (M5GO) logo, halved.

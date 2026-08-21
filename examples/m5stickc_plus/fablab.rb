@@ -32,8 +32,8 @@ SUB       = "by prremote"
 SUB_SCALE = 1
 SUB_CELL  = 8 * SUB_SCALE
 GAP = 10
-X  = (lcd.width - TEXT.length * CELL) / 2
-X2 = (lcd.width - SUB.length * SUB_CELL) / 2
+X  = (lcd.width - (TEXT.length * CELL)) / 2
+X2 = (lcd.width - (SUB.length * SUB_CELL)) / 2
 Y  = (lcd.height - (CELL + GAP + SUB_CELL)) / 2
 Y2 = Y + CELL + GAP
 
