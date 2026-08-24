@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Runtime: `UDPSocket` and `TCPSocket` on the classic **esp32** build (M5GO / M5Stack Core, M5StickC PLUS). Same wiring as the esp32c6 build from 0.3.0: `HAS_SOCKET` / `HAS_UDP_SOCKET` compile definitions, picoruby-socket's `ports/esp32` (lwIP BSD sockets) plus the vendored VM bindings (`src/tcp_socket_binding.c` / `udp_socket_binding.c` with the refcount fixes), the lwIP `port/include` prepend that keeps ESP-IDF's `lwipopts.h` from being shadowed by the pico one in `runtime/src`, and `MAX_VM_COUNT=8` for the two extra socket wrap tasks. The Ruby layers are shared unchanged (`src/socket_wrap.h` verbatim from picow, `src/socket_wrap_udp.h` compiled from picoruby-socket's `udp_socket.rb`). `.local` (mDNS) names resolve via `getaddrinfo` as on esp32c6. _Build-verified only so far (idf.py build + merge_bin succeed); not yet exercised on a physical M5GO._
+- Example: `examples/m5go/socket_udp.rb` — M5GO UDPSocket round-trip, adapted from `examples/xiao_c6/socket_udp.rb`: connect (with `.local` mDNS resolution), send comma-separated values, poll for a reply with `recvfrom_nonblock`; ships the same minimal CRuby echo server in a comment.
+
 ## [0.3.1] - 2026-08-21
 
 ### Fixed

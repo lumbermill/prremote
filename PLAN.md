@@ -47,12 +47,14 @@ M5GO 用は [examples/m5go/lcd_shapes.rb](../examples/m5go/lcd_shapes.rb)。
 余裕があれば PWM の外部 LED 版（明るさ）・サーボ版（50Hz / duty で角度）、
 SPI の実デバイス版（フラッシュ / SD の JEDEC ID 読み出し）サンプルも追加検討。
 
-## classic esp32（M5GO）への TCP/UDPSocket 展開（任意）
+## classic esp32（M5GO）TCP/UDPSocket の実機検証（残）
 
-esp32c6 の TCPSocket / UDPSocket は実機検証済み（[docs/SUPPORT.md](docs/SUPPORT.md) 参照）。
-classic esp32 にも同じ層を載せられる（`ports/esp32` は共通、`esp32/main/CMakeLists.txt` と
-`bindings_esp32.c` に esp32c6 と同じ socket 配線＋`MAX_VM_COUNT` 引き上げを足すだけ）。
-需要を見て判断する。
+esp32c6 と同じ socket 配線（`HAS_SOCKET` / `HAS_UDP_SOCKET`、`MAX_VM_COUNT=8`、
+lwipopts shadow 対策）を `esp32/main/CMakeLists.txt` と `bindings_esp32.c` に展開済み。
+ビルド確認のみ・M5GO 実機は未検証。検証は WiFi 接続後に
+[examples/m5go/socket_udp.rb](examples/m5go/socket_udp.rb)（クレデンシャルは `wk/` コピーで）を
+エコーサーバ相手に流し、UDP 往復と TCPSocket（`wk/tcp_probe.rb` 相当）を確認する。
+確認できたら [docs/SUPPORT.md](docs/SUPPORT.md) の 🧪 を ✅ に上げる。
 
 ## ESP32 LCD の向き自動補正（任意・優先度低）
 
