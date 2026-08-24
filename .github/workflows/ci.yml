@@ -1,37 +1,206 @@
+# CI: gem tests + all runtime builds on every push/PR, and a draft GitHub
+# release with all board assets when a runtime-X.Y.Z tag is pushed.
+#
+# The build jobs reuse the same rake tasks as local development
+# (runtime/Rakefile), so CI and a developer Mac produce artifacts the same way:
+#   - pico / picow / pico2: pico-sdk submodule + ARM GNU toolchain
+#     (toolchain/deps mirror the retired build-pico2.yml, which proved them)
+#   - esp32 / esp32c6:      espressif/idf docker image (v5.3.2, matching the
+#                           locally installed ESP-IDF)
+#
+# mrbc is built once from source at a pinned mruby version (kept in sync with
+# the local toolchain: `brew install mruby` / rbenv mruby) and shared with the
+# build jobs as an artifact, so wrapper bytecode does not depend on whatever
+# mruby version a distro package happens to ship.
 name: CI
 
 on:
   push:
     branches: [main]
+    tags: ['runtime-*']
   pull_request:
-    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  MRUBY_VERSION: 4.0.0
 
 jobs:
   test:
+    name: gem test (ruby ${{ matrix.ruby-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        ruby-version: ["3.4", "4.0"]
-
+        ruby-version: ['3.4', '4.0']
     steps:
       - uses: actions/checkout@v6
-
-      - name: Set up Ruby ${{ matrix.ruby-version }}
-        uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
           bundler-cache: true
-
-      - name: Run tests
-        run: bundle exec rake test
+      - run: bundle exec rake test
 
   lint:
+    name: rubocop
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "4.0"
+          ruby-version: '4.0'
           bundler-cache: true
-      - name: Run RuboCop
-        run: bundle exec rubocop
+      - run: bundle exec rubocop
+
+  mrbc:
+    name: build mrbc
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache mrbc binary
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: mrbc-bin
+          key: mrbc-${{ env.MRUBY_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Build mruby (mrbc)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y bison
+          curl -fsSL "https://github.com/mruby/mruby/archive/refs/tags/${MRUBY_VERSION}.tar.gz" | tar xz
+          cd "mruby-${MRUBY_VERSION}"
+          rake -j"$(nproc)"
+          mkdir -p ../mrbc-bin
+          cp build/host/bin/mrbc ../mrbc-bin/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mrbc
+          path: mrbc-bin/mrbc
+          retention-days: 1
+          if-no-files-found: error
+
+  pico:
+    name: build ${{ matrix.board }}
+    needs: mrbc
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [pico, picow, pico2]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Init submodules (mrubyc + pico-sdk recursive, picoruby flat)
+        run: |
+          git submodule update --init --recursive runtime/mrubyc runtime/pico-sdk
+          # picoruby is only a source checkout (picoruby-socket for picow);
+          # its own nested submodules are not needed.
+          git submodule update --init runtime/picoruby
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git python3 pkg-config libusb-1.0-0-dev
+      - name: Install ARM GNU toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+      - uses: actions/download-artifact@v4
+        with:
+          name: mrbc
+          path: ${{ runner.temp }}/mrbc-bin
+      - name: Build
+        working-directory: runtime
+        env:
+          MRBC: ${{ runner.temp }}/mrbc-bin/mrbc
+          PICO_SDK_PATH: ${{ github.workspace }}/runtime/pico-sdk
+          PICOTOOL_FETCH_FROM_GIT_PATH: ${{ github.workspace }}/.picotool
+        run: |
+          chmod +x "$MRBC"
+          rake "build:${{ matrix.board }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.board }}
+          path: runtime/build/${{ matrix.board }}/prremote-*-runtime-*.uf2
+          retention-days: 7
+          if-no-files-found: error
+
+  esp32:
+    name: build ${{ matrix.board }}
+    needs: mrbc
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.3.2
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [esp32, esp32c6]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Init submodules (mrubyc, picoruby)
+        run: git submodule update --init runtime/mrubyc runtime/picoruby
+      - name: Install ruby (for rake + mrubyc autogen)
+        run: apt-get update && apt-get install -y ruby rake
+      - uses: actions/download-artifact@v4
+        with:
+          name: mrbc
+          path: ${{ runner.temp }}/mrbc-bin
+      - name: Build
+        working-directory: runtime
+        env:
+          MRBC: ${{ runner.temp }}/mrbc-bin/mrbc
+          # IDF_PATH is preset by the espressif/idf image; runtime/Rakefile
+          # honors it and sources export.sh itself.
+        run: |
+          chmod +x "$MRBC"
+          rake "build:${{ matrix.board }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.board }}
+          path: runtime/build/${{ matrix.board }}/prremote-*-runtime-*.bin
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    name: draft release
+    if: startsWith(github.ref, 'refs/tags/runtime-')
+    needs: [test, lint, pico, esp32]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify tag matches VERSION
+        run: |
+          expected="runtime-$(cat VERSION)"
+          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match VERSION ($expected)" >&2
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: runtime-*
+          merge-multiple: true
+          path: assets
+      - name: Create draft release (or upload assets to an existing one)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l assets/
+          # Publishing a release made by the local fallback (`rake release`)
+          # creates this tag and re-triggers CI, so stay idempotent: if the
+          # release already exists, just refresh its assets.
+          if gh release view "$GITHUB_REF_NAME" --json name >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" assets/* --clobber
+            echo "Release already existed — assets refreshed."
+          else
+            gh release create "$GITHUB_REF_NAME" assets/* \
+              --title "Runtime $(cat VERSION)" --draft --generate-notes
+            echo "Draft release created — edit notes and publish on GitHub."
+          fi

@@ -23,6 +23,30 @@ mruby/c には `Timeout` モジュールもスレッドもないため Ruby 層�
 - Linux は glibc 互換性のため Ubuntu 20.04 系でビルドする（または musl で完全静的リンク）
 - キャッシュ済みであれば再ダウンロードしない（UF2 と同じ挙動）
 - `$MRBC` 環境変数による上書きは引き続き有効
+- CI（`.github/workflows/ci.yml`）は既に mruby 4.0.0 固定で linux mrbc をビルドして
+  ランタイムビルドに使っている。このジョブを matrix 化（macos runner は public リポジトリなら
+  無料）してリリース資産に足せば、この項目の大半は同じワークフローで済む
+
+## Raspberry Pi による pull 型リリーススモーク（次にやる）
+
+常時稼働の Raspberry Pi 4 にボードを USB で挿したままにし、published された runtime リリースを
+**Pi 側から取りに行く pull 型**で `rake smoke[board]` の auto 項目を無人実行する。
+public リポジトリでの self-hosted runner は GitHub 非推奨（fork PR からの任意コード実行）なので、
+GitHub → Pi の inbound 信頼を作らないことが設計の軸。
+Pi 4 で十分（ビルドはしない。gem 実行 + 書き込み + エコーサーバ程度で、
+`aarch64-linux` は Gemfile.lock の PLATFORMS にも既に入っている）。
+
+構成案:
+
+- systemd timer で GitHub Releases API をポーリング → 新しい published `runtime-X.Y.Z` を検出したら
+  該当版の gem を install → ボードごとに `prremote install -b <board>` → `PORT=… rake smoke[<board>]`
+- draft には反応しない（publish 後のスモークという位置づけ。[docs/SUPPORT.md](docs/SUPPORT.md) の運用と一致）
+- 結果通知は `gh issue create`（fine-grained PAT、issues:write のみ）またはログ+メール
+- socket スモーク用の UDP/TCP エコーサーバは Pi 自身に常駐させ外部依存ゼロに
+- WiFi クレデンシャルは Pi 上の git 管理外ディレクトリ（`wk/` 方式）
+- 書き込みのハンズフリー化: esp32 = EspFlasher 自動リセット、esp32c6 = `--before usb-reset` で対応済み。
+  pico 系は BOOTSEL 手動が課題だが、ランタイムは pico_stdio_usb を使っているので
+  `picotool reboot -f`（vendor interface 経由で BOOTSEL へ再起動）で無人化できる見込み — 要実機検証
 
 ## 対応ボードの拡張候補
 
