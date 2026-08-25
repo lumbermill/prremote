@@ -83,6 +83,38 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  mrbc-idf:
+    name: build mrbc (in IDF container)
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.3.2
+    steps:
+      # A binary built by the `mrbc` job above (on the ubuntu-latest runner,
+      # Ubuntu 24.04 / glibc 2.39+) fails inside this container (Ubuntu 22.04
+      # / glibc 2.35) with "GLIBC_2.38 not found" — so the esp32 build jobs
+      # need their own copy built against this container's own glibc.
+      - name: Cache mrbc binary
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: mrbc-bin
+          key: mrbc-idf-${{ env.MRUBY_VERSION }}-espressif-idf-v5.3.2
+      - name: Build mruby (mrbc)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          apt-get update && apt-get install -y bison build-essential curl
+          curl -fsSL "https://github.com/mruby/mruby/archive/refs/tags/${MRUBY_VERSION}.tar.gz" | tar xz
+          cd "mruby-${MRUBY_VERSION}"
+          rake -j"$(nproc)"
+          mkdir -p ../mrbc-bin
+          cp build/host/bin/mrbc ../mrbc-bin/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mrbc-idf
+          path: mrbc-bin/mrbc
+          retention-days: 1
+          if-no-files-found: error
+
   pico:
     name: build ${{ matrix.board }}
     needs: mrbc
@@ -133,7 +165,7 @@ jobs:
 
   esp32:
     name: build ${{ matrix.board }}
-    needs: mrbc
+    needs: mrbc-idf
     runs-on: ubuntu-latest
     container:
       image: espressif/idf:v5.3.2
@@ -156,7 +188,7 @@ jobs:
         run: apt-get update && apt-get install -y ruby rake
       - uses: actions/download-artifact@v4
         with:
-          name: mrbc
+          name: mrbc-idf
           path: ${{ runner.temp }}/mrbc-bin
       - name: Build
         working-directory: runtime
