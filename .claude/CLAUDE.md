@@ -27,14 +27,14 @@ rake cache     # ビルド（pico + picow + esp32）→ ~/.prremote/runtime/ に
 #     submodule ではない。セットアップ手順は README.md の Development 参照。
 #     別の場所なら IDF_PATH で指定）
 
-# 6. runtime タグを push → CI（.github/workflows/ci.yml）が全ボードをビルドして
-#    draft リリースを自動作成する
+# 6. runtime タグを push → CI（.github/workflows/ci.yml）が全ボードをビルドし、
+#    リリースノートを CHANGELOG.md の該当バージョン節から取って publish まで自動実行
+#    （手順 2 で CHANGELOG を確定させていることが前提）
 cd ..
 git tag runtime-X.X.X
 git push origin main runtime-X.X.X
-# → Actions 完了後、GitHub 上でリリースノートを編集してから [Publish release]
-# フォールバック（CI が使えないとき）: cd runtime && rake release
-#   → 既にリリースが存在する場合、CI は資産アップロードだけやり直す（冪等）
+# フォールバック（CI が使えないとき）: cd runtime && rake release → draft を手動 publish
+#   （既にリリースが存在する場合、CI は資産アップロードだけやり直す・冪等）
 
 # 7. テスト
 bundle exec rake test
