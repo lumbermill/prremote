@@ -143,6 +143,13 @@ jobs:
         board: [esp32, esp32c6]
     steps:
       - uses: actions/checkout@v6
+      # actions/checkout registers GITHUB_WORKSPACE as a safe.directory in the
+      # runner's git config, but container jobs run git commands (this step
+      # and rake's own `git describe` etc.) as a different user inside the
+      # container, which doesn't see that config — every git invocation here
+      # would otherwise fail with "detected dubious ownership".
+      - name: Trust the checked-out workspace inside the container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Init submodules (mrubyc, picoruby)
         run: git submodule update --init runtime/mrubyc runtime/picoruby
       - name: Install ruby (for rake + mrubyc autogen)
