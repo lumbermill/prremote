@@ -44,11 +44,10 @@ bundle exec rake gem            # pkg/prremote-X.X.X.gem が生成される
 
 # 9. RubyGems.org に push（MFA 有効のため OTP が必要）
 gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
-
-# 10. git タグを打って push
-git tag vX.X.X
-git push origin main vX.X.X
 ```
+
+`vX.X.X` タグは廃止（`runtime-X.X.X` タグがリリースと1:1で対応しており、
+将来の参照はそちらで足りるため）。
 
 ---
 
