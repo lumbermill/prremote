@@ -2,6 +2,7 @@ require 'thor'
 require 'rubyserial'
 require_relative 'version'
 require_relative 'detector'
+require_relative 'serial_port'
 require_relative 'mrbc'
 require_relative 'esp_flasher'
 require_relative 'runtime_manager'
@@ -112,6 +113,8 @@ module Prremote
       devices = Detector.new.list_devices
       if devices.empty?
         puts 'No serial devices found.'
+        hint = Detector.no_device_hint
+        puts hint if hint
       else
         devices.each { |d| puts "#{d[:port]}  (#{d[:label]})" }
       end
@@ -120,7 +123,7 @@ module Prremote
     desc 'reset', 'Send Ctrl+C to interrupt the running program'
     def reset
       port = resolve_port
-      serial = Serial.new(port, options[:baud])
+      serial = SerialPort.open(port, options[:baud])
       serial.write("\x03")
       sleep 0.1
       puts 'Reset signal sent.'
@@ -153,7 +156,7 @@ module Prremote
       port = options[:port] || Detector.find_device
       return '(no device connected)' unless port
 
-      serial = Serial.new(port, options[:baud])
+      serial = SerialPort.open(port, options[:baud])
       serial.write("\x03")
       buf      = +''
       deadline = Time.now + 5
@@ -176,7 +179,7 @@ module Prremote
             p = options[:port] || Detector.find_device
             if p && File.exist?(p)
               serial = begin
-                Serial.new(p, options[:baud])
+                SerialPort.open(p, options[:baud])
               rescue StandardError
                 nil
               end

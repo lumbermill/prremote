@@ -41,7 +41,7 @@ module Prremote
       end
 
       def deploy_to_device(mrb_data, rb_paths)
-        serial = Serial.new(@port, @baud)
+        serial = SerialPort.open(@port, @baud)
         wait_for_ready(serial)
         write_chunked(serial, DEPLOY_MAGIC + build_meta_packet(rb_paths) + mrb_data)
         wait_for_deployed(serial)

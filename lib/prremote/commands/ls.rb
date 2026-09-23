@@ -31,7 +31,7 @@ module Prremote
       private
 
       def query_device
-        serial = Serial.new(@port, @baud)
+        serial = SerialPort.open(@port, @baud)
         wait_for_ready(serial)
         serial.write(QUERY_MAGIC)
 

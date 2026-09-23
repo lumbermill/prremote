@@ -32,12 +32,19 @@ env:
 
 jobs:
   test:
-    name: gem test (ruby ${{ matrix.ruby-version }})
-    runs-on: ubuntu-latest
+    name: gem test (ruby ${{ matrix.ruby-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         ruby-version: ['3.4', '4.0']
+        # Windows is a supported host, so cover it on one Ruby rather than the
+        # whole matrix — the platform-specific code is the serial port lookup
+        # and the BOOTSEL drive scan, not anything version dependent.
+        include:
+          - os: windows-latest
+            ruby-version: '3.4'
     steps:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
