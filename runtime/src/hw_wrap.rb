@@ -14,6 +14,7 @@
 #   - ESP32 GPIO 34-39 are input-only and have no pull resistors
 #   - Temperature is RP2040-only (raises at runtime on ESP32)
 #   - Default I2C pins: RP2040 SDA=4/SCL=5; ESP32 SDA=21/SCL=22
+#   - IR is classic-ESP32-only (RMT peripheral); raises elsewhere
 class GPIO
   IN          = 0
   OUT         = 1
@@ -198,6 +199,58 @@ class I2C
       addr += 1
     end
     found
+  end
+end
+
+# Infrared transmitter (e.g. the M5StickC PLUS IR LED on GPIO 9).
+# Classic ESP32 only: the pulse train is replayed by the RMT peripheral with
+# a hardware carrier, so timing is exact regardless of the VM. Other boards
+# raise RuntimeError on IR.new.
+#
+#   ir = IR.new(9)                 # 38 kHz carrier, 33% duty
+#   ir.send_nec(0x00, 0x45)        # NEC: 8-bit address (or 16-bit extended), command
+#   ir.send_nec_repeat             # NEC "key still held" repeat frame
+#   ir.send_raw([9000, 4500, 560]) # mark/space durations in us, starting with a mark
+class IR
+  NEC_UNIT = 560
+
+  def initialize(pin, carrier: 38_000, duty: 33)
+    @pin = pin
+    _ir_init(pin, carrier, duty)
+  end
+
+  # durations: Array of Integer microseconds — mark, space, mark, ...
+  def send_raw(durations)
+    _ir_send(durations)
+  end
+
+  # address 0-255 sends address + ~address (standard NEC); 256-65535 sends
+  # the 16-bit address low byte first (extended NEC). command is 0-255.
+  def send_nec(address, command)
+    d = [9000, 4500]
+    if address > 0xFF
+      _nec_byte(d, address & 0xFF)
+      _nec_byte(d, (address >> 8) & 0xFF)
+    else
+      _nec_byte(d, address)
+      _nec_byte(d, address ^ 0xFF)
+    end
+    _nec_byte(d, command & 0xFF)
+    _nec_byte(d, (command & 0xFF) ^ 0xFF)
+    d << NEC_UNIT
+    _ir_send(d)
+  end
+
+  def send_nec_repeat
+    _ir_send([9000, 2250, NEC_UNIT])
+  end
+
+  # LSB first; 0 = 560 us space, 1 = 1680 us space (3 units; spec 1687.5).
+  def _nec_byte(d, byte)
+    8.times do |i|
+      d << NEC_UNIT
+      d << (((byte >> i) & 1) == 1 ? NEC_UNIT * 3 : NEC_UNIT)
+    end
   end
 end
 

@@ -544,6 +544,13 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_RETURN(s);
 }
 
+/* IR transmit (_ir_init / _ir_send) is only implemented on classic ESP32
+ * (RMT, bindings_esp32.c); the IR class raises here. */
+static void c_ir_unsupported(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_raise(vm, MRBC_CLASS(RuntimeError), "IR not supported on this board");
+}
+
 /* ------------------------------------------------------------------ */
 /* Register all methods — called after every mrbc_init()              */
 /* ------------------------------------------------------------------ */
@@ -587,6 +594,8 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_spi_write",        c_spi_write);
   mrbc_define_method(0, mrbc_class_object, "_spi_read",         c_spi_read);
   mrbc_define_method(0, mrbc_class_object, "_spi_transfer",     c_spi_transfer);
+  mrbc_define_method(0, mrbc_class_object, "_ir_init",          c_ir_unsupported);
+  mrbc_define_method(0, mrbc_class_object, "_ir_send",          c_ir_unsupported);
 #ifdef HAS_WIFI
   register_wifi_methods();
 #endif

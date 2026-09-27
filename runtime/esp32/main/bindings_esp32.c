@@ -11,6 +11,7 @@
 #include "driver/ledc.h"
 #include "driver/i2c_master.h"
 #include "driver/spi_master.h"
+#include "driver/rmt_tx.h"
 #include "esp_adc/adc_oneshot.h"
 #include <mrubyc.h>
 
@@ -507,6 +508,110 @@ static void c_spi_transfer(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 /* ------------------------------------------------------------------ */
+/* IR transmit bindings — RMT                                          */
+/* One RMT TX channel with a modulated carrier (e.g. 38 kHz), fed raw  */
+/* mark/space durations in microseconds. Protocol encoding (NEC, ...)  */
+/* lives in hw_wrap.rb; the C side only replays the pulse train.       */
+/* ------------------------------------------------------------------ */
+
+#define IR_MAX_DURATIONS 512
+
+static rmt_channel_handle_t s_ir_chan;
+static rmt_encoder_handle_t s_ir_enc;
+static rmt_symbol_word_t    s_ir_symbols[IR_MAX_DURATIONS / 2];
+
+static void ir_release(void)
+{
+  if (s_ir_chan != NULL) {
+    rmt_disable(s_ir_chan);
+    rmt_del_channel(s_ir_chan);
+    s_ir_chan = NULL;
+  }
+}
+
+/* _ir_init(pin, carrier_hz, duty_percent) */
+static void c_ir_init(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int pin     = GET_INT_ARG(1);
+  int carrier = GET_INT_ARG(2);
+  int duty    = GET_INT_ARG(3);
+
+  /* Runs don't reset the chip, so a previous script's channel may still be
+   * alive; rebuild it so a new pin/carrier always takes effect. */
+  ir_release();
+
+  rmt_tx_channel_config_t ccfg = {
+    .gpio_num          = pin,
+    .clk_src           = RMT_CLK_SRC_DEFAULT,
+    .resolution_hz     = 1000000,   /* 1 tick = 1 us */
+    .mem_block_symbols = 64,
+    .trans_queue_depth = 1,
+  };
+  if (rmt_new_tx_channel(&ccfg, &s_ir_chan) != ESP_OK) {
+    s_ir_chan = NULL;
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "IR init failed (rmt channel)");
+    return;
+  }
+  if (carrier > 0) {
+    rmt_carrier_config_t car = {
+      .frequency_hz = (uint32_t)carrier,
+      .duty_cycle   = (duty > 0 && duty < 100 ? duty : 33) / 100.0f,
+    };
+    rmt_apply_carrier(s_ir_chan, &car);
+  }
+  if (s_ir_enc == NULL) {
+    rmt_copy_encoder_config_t ecfg = {};
+    rmt_new_copy_encoder(&ecfg, &s_ir_enc);
+  }
+  rmt_enable(s_ir_chan);
+}
+
+/* _ir_send(durations_array) → number of durations sent
+ * Durations alternate mark (carrier on) / space (off), starting with a
+ * mark, in microseconds (each 1..32767). */
+static void c_ir_send(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (s_ir_chan == NULL) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "IR not initialized");
+    return;
+  }
+  if (v[1].tt != MRBC_TT_ARRAY) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "durations must be an Array");
+    return;
+  }
+  mrbc_array *ary = v[1].array;
+  int n = (int)ary->n_stored;
+  if (n == 0) { SET_INT_RETURN(0); return; }
+  if (n > IR_MAX_DURATIONS) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "too many durations (max 512)");
+    return;
+  }
+
+  int nsym = (n + 1) / 2;
+  for (int i = 0; i < nsym; i++) {
+    int mark  = mrbc_integer(ary->data[2 * i]);
+    int space = (2 * i + 1 < n) ? mrbc_integer(ary->data[2 * i + 1]) : 0;
+    if (mark < 1 || mark > 32767 || space < 0 || space > 32767) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "duration out of range (1..32767 us)");
+      return;
+    }
+    s_ir_symbols[i].level0    = 1;
+    s_ir_symbols[i].duration0 = mark;
+    s_ir_symbols[i].level1    = 0;
+    s_ir_symbols[i].duration1 = space;
+  }
+
+  rmt_transmit_config_t tcfg = { .loop_count = 0 };
+  if (rmt_transmit(s_ir_chan, s_ir_enc, s_ir_symbols,
+                   nsym * sizeof(rmt_symbol_word_t), &tcfg) != ESP_OK ||
+      rmt_tx_wait_all_done(s_ir_chan, 1000) != ESP_OK) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "IR send failed");
+    return;
+  }
+  SET_INT_RETURN(n);
+}
+
+/* ------------------------------------------------------------------ */
 /* Register all methods — called after every mrbc_init()              */
 /* ------------------------------------------------------------------ */
 
@@ -549,6 +654,8 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_spi_write",        c_spi_write);
   mrbc_define_method(0, mrbc_class_object, "_spi_read",         c_spi_read);
   mrbc_define_method(0, mrbc_class_object, "_spi_transfer",     c_spi_transfer);
+  mrbc_define_method(0, mrbc_class_object, "_ir_init",          c_ir_init);
+  mrbc_define_method(0, mrbc_class_object, "_ir_send",          c_ir_send);
 #ifdef HAS_WIFI
   register_wifi_methods();
 #endif
