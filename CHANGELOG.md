@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `prremote install -b pico2` was rejected as an unknown board even though the pico2 (RP2350) UF2 is built and published with every runtime release. `pico2` is now in `RuntimeManager::BOARDS` (fetching/caching `prremote-pico2-runtime-X.Y.Z.uf2`), and the install command waits for and copies to the RP2350 boot ROM's `RP2350` BOOTSEL drive instead of `RPI-RP2` (macOS `/Volumes` and Linux `/run/media`, `/media` paths), with the prompt naming the right board and drive. README now lists the Pico 2. _Unit-tested only; not yet exercised on a physical Pico 2._
 - `rake smoke[BOARD]` with `PORT`/`BAUD` set: the `--port`/`--baud` options were placed before the subcommand (`prremote --port X run ...`), which Thor rejects with a usage message, so every auto check failed whenever a port was given explicitly. They now follow the subcommand.
 
 ## [0.3.2] - 2026-08-25

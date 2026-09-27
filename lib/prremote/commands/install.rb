@@ -3,6 +3,8 @@ require 'fileutils'
 module Prremote
   module Commands
     class Install
+      DEVICE_LABELS = { 'pico' => 'Pico', 'picow' => 'Pico W', 'pico2' => 'Pico 2' }.freeze
+
       def initialize(version: VERSION, board: 'picow', port: nil, verbose: false)
         @version = version
         @board   = board
@@ -15,13 +17,12 @@ module Prremote
 
         uf2_path = RuntimeManager.fetch(@version, @board)
 
-        device_label = @board == 'picow' ? 'Pico W' : 'Pico'
         puts "Put the #{device_label} into BOOTSEL mode:"
         puts '  1. Hold the BOOTSEL button'
         puts '  2. Connect USB (or press RUN while holding BOOTSEL)'
-        puts '  3. Release BOOTSEL — RPI-RP2 should appear as a USB drive'
+        puts "  3. Release BOOTSEL — #{volume_name} should appear as a USB drive"
         puts
-        puts 'Waiting for RPI-RP2...'
+        puts "Waiting for #{volume_name}..."
 
         volume = wait_for_volume
         puts "Copying firmware to #{volume}..."
@@ -47,11 +48,22 @@ module Prremote
         puts "Done. Runtime #{@version} installed."
       end
 
+      def device_label
+        DEVICE_LABELS.fetch(@board, 'Pico')
+      end
+
+      # The RP2040 boot ROM mounts its BOOTSEL drive as RPI-RP2; the RP2350
+      # (Pico 2) boot ROM uses RP2350 instead.
+      def volume_name
+        @board == 'pico2' ? 'RP2350' : 'RPI-RP2'
+      end
+
       def volume_paths
+        user = ENV.fetch('USER', nil)
         [
-          '/Volumes/RPI-RP2',
-          "/run/media/#{ENV.fetch('USER', nil)}/RPI-RP2",
-          "/media/#{ENV.fetch('USER', nil)}/RPI-RP2"
+          "/Volumes/#{volume_name}",
+          "/run/media/#{user}/#{volume_name}",
+          "/media/#{user}/#{volume_name}"
         ]
       end
 
@@ -60,7 +72,7 @@ module Prremote
         loop do
           path = volume_paths.find { |p| File.directory?(p) }
           return path if path
-          raise "Timed out waiting for RPI-RP2 volume (#{timeout}s)" if Time.now > deadline
+          raise "Timed out waiting for #{volume_name} volume (#{timeout}s)" if Time.now > deadline
 
           sleep 1
         end

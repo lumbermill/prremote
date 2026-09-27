@@ -4,7 +4,7 @@ require 'fileutils'
 
 module Prremote
   module RuntimeManager
-    BOARDS = %w[pico picow esp32 esp32c6].freeze
+    BOARDS = %w[pico picow pico2 esp32 esp32c6].freeze
     ESP32_BOARDS = %w[esp32 esp32c6].freeze
 
     # Pico boards ship as UF2 (copied to the BOOTSEL drive); ESP32 family ships
