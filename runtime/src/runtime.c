@@ -121,11 +121,21 @@ static bool create_wrap_task(const void *bytecode, const char *name)
   return true;
 }
 
+/* PRREMOTE_VERSION: the runtime version string (same as the READY banner),
+ * for scripts that want to show it. Allocated with vm = NULL so it belongs to
+ * no VM and survives until the next mrbc_cleanup(); redefined on every exec. */
+static void define_version_const(void)
+{
+  mrbc_value v = mrbc_string_new_cstr(NULL, RUNTIME_VERSION);
+  mrbc_set_const(mrbc_symbol(mrbc_symbol_new(NULL, "PRREMOTE_VERSION")), &v);
+}
+
 static void exec_mrb(void)
 {
   mrbc_cleanup();
   mrbc_init(memory_pool, HEAP_SIZE);
   runtime_define_methods();
+  define_version_const();
 
   if (!create_wrap_task(hw_wrap, "hw_wrap")) return;
 #ifdef HAS_WIFI

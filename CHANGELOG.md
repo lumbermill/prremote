@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Runtime (all boards): `PRREMOTE_VERSION` constant holding the runtime version string (the same value as the `READY prremote-runtime/X.Y.Z` banner), so scripts can display it. Defined in the platform-neutral `runtime.c` right after the per-board bindings on every exec.
+
+### Changed
+
+- Example (**M5StickC PLUS**, `examples/m5stickc_plus/ruby.rb`): flipped 180° (`rotation: 1` / `madctl: 0x60`; the comment explains how to flip back with `rotation: 3` / `madctl: 0xA0`), adds a small `HH:MM` clock at the top center read from the BM8563 RTC (`--:--` until `rtc_sync.rb` has set it; polled once a second, redrawn only when the minute changes), and shows `vX.Y.Z` from `PRREMOTE_VERSION` at the bottom right — silently omitted on runtimes older than the one adding the constant.
+
 ## [0.4.0] - 2026-09-27
 
 ### Added
