@@ -4,6 +4,10 @@
 # power button on the top edge). Both are input-only pins (GPIO34-39 have
 # no internal pull resistor on ESP32) with an external pull-up on the
 # board, so plain GPIO::IN; pressed reads 0.
+# The same buttons through the board library (see lcd_hello.rb) — pressed?
+# hides the active-low read:
+#   stick = M5StickCPlus.new
+#   stick.button_a.pressed?
 btn_a = GPIO.new(37, GPIO::IN)
 btn_b = GPIO.new(39, GPIO::IN)
 

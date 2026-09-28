@@ -9,9 +9,7 @@
 # ADC.read returns 0-65520 (12-bit x 16). Verified with an ANGLE unit: the
 # reading follows the knob and reaches 0 / 65520 at either end of its travel.
 
-i2c = I2C.new(sda_pin: 21, scl_pin: 22)
-cur = i2c.read(0x34, 1, 0x12).getbyte(0)
-i2c.write(0x34, 0x12, cur | 0x4D) # AXP192: enable Ext (Grove 5V), LDO2/3, DCDC1
+M5StickCPlus.new # AXP192 power-on, incl. EXTEN (Grove 5V) — see lcd_hello.rb
 
 adc = ADC.new(33)
 

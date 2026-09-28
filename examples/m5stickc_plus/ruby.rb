@@ -5,29 +5,17 @@
 # Press button A to blink the text to a new color; press button B to blink
 # the background instead.
 #
-# Wiring: none — everything built-in. See lcd_hello.rb for the AXP192
-# power-on this panel needs before it'll show anything.
+# Wiring: none — everything built-in (M5StickCPlus: see lcd_hello.rb).
 # The clock reads the BM8563 RTC, so set it once with rtc_sync.rb (NTP);
 # until then it shows "--:--". The version needs runtime 0.4.1 or later
 # (PRREMOTE_VERSION); on older runtimes it is simply left out.
 
-i2c = I2C.new(sda_pin: 21, scl_pin: 22)
-i2c.write(0x34, 0x28, 0xCC)                 # LDO2/LDO3 voltage = 3.0V
-cur = i2c.read(0x34, 1, 0x12).getbyte(0)
-i2c.write(0x34, 0x12, cur | 0x4D)           # enable Ext, LDO2, LDO3, DCDC1
-
-# Landscape, flipped 180° from the original version of this sample. To flip
-# it back, use ROTATION = 3 with MADCTL = 0xA0.
-# madctl is the default table's value for the rotation minus the BGR bit
-# (0x08) the table assumes for the ILI9342C (M5GO) — see lcd_hello.rb.
-ROTATION = 1
-MADCTL   = 0x60
-lcd = LCD.new(rotation: ROTATION, sck_pin: 13, mosi_pin: 15, miso_pin: -1, cs_pin: 5,
-              dc_pin: 23, rst_pin: 18, bl_pin: -1, invert: true, madctl: MADCTL,
-              width: 135, height: 240, offset_x: 52, offset_y: 40)
-
-btn_a = GPIO.new(37, GPIO::IN)
-btn_b = GPIO.new(39, GPIO::IN)
+stick = M5StickCPlus.new
+# Landscape, flipped 180° from the original version of this sample (which
+# used rotation: 3) — change to 3 to flip it back.
+lcd = stick.lcd(rotation: 1)
+btn_a = stick.button_a
+btn_b = stick.button_b
 
 FG_COLORS = [LCD::RED, LCD::CYAN, LCD::YELLOW, LCD::MAGENTA, LCD::GREEN, LCD::ORANGE, LCD::WHITE]
 BG_COLORS = [LCD::BLACK, LCD::BLUE]
@@ -58,8 +46,6 @@ MARGIN  = 4
 CLOCK_X = (lcd.width - (5 * SUB_CELL)) / 2 # "HH:MM"
 CLOCK_Y = MARGIN
 
-RTC_ADDR = 0x51
-
 # PRREMOTE_VERSION exists from runtime 0.4.1; nil (not shown) before that.
 VER_TEXT = begin
   "v#{PRREMOTE_VERSION}"
@@ -69,20 +55,16 @@ end
 VER_X = VER_TEXT ? lcd.width - (VER_TEXT.length * SUB_CELL) - MARGIN : 0
 VER_Y = lcd.height - SUB_CELL - MARGIN
 
-def bcd2dec(b)
-  ((b >> 4) * 10) + (b & 0x0F)
-end
-
 def p2(n)
   n < 10 ? "0#{n}" : n.to_s
 end
 
-# "HH:MM" from the BM8563 RTC, or "--:--" if it was never set (VL bit).
-def clock_text(i2c)
-  r = i2c.read(RTC_ADDR, 3, 0x02)&.bytes
-  return "--:--" if r.nil? || r[0] >= 0x80 # bit7 = VL: time invalid
+# "HH:MM" from the built-in RTC, or "--:--" if it was never set.
+def clock_text(rtc)
+  return "--:--" unless rtc.valid?
 
-  "#{p2(bcd2dec(r[2] & 0x3F))}:#{p2(bcd2dec(r[1] & 0x7F))}"
+  t = rtc.time
+  "#{p2(t.hour)}:#{p2(t.min)}"
 end
 
 # Small faceted gem: flat top crown widening to the shoulder, then
@@ -122,25 +104,25 @@ end
 
 fg_idx = 0
 bg_idx = 0
-clock = clock_text(i2c)
+clock = clock_text(stick.rtc)
 show(lcd, FG_COLORS[fg_idx], BG_COLORS[bg_idx], clock)
 next_poll = uptime_ms + 1000
 
 loop do
-  if btn_a.read == 0
+  if btn_a.pressed?
     fg_idx = (fg_idx + 1) % FG_COLORS.length
     blink(lcd, FG_COLORS[fg_idx], FG_COLORS[fg_idx], BG_COLORS[bg_idx], clock)
-    sleep 0.05 while btn_a.read == 0 # wait for release (debounce)
-  elsif btn_b.read == 0
+    sleep 0.05 while btn_a.pressed? # wait for release (debounce)
+  elsif btn_b.pressed?
     bg_idx = (bg_idx + 1) % BG_COLORS.length
     blink(lcd, BG_COLORS[bg_idx], FG_COLORS[fg_idx], BG_COLORS[bg_idx], clock)
-    sleep 0.05 while btn_b.read == 0
+    sleep 0.05 while btn_b.pressed?
   end
 
   # Poll the RTC once a second; redraw only the clock when the minute changes.
   if uptime_ms >= next_poll
     next_poll = uptime_ms + 1000
-    now = clock_text(i2c)
+    now = clock_text(stick.rtc)
     if now != clock
       clock = now
       draw_clock(lcd, clock, FG_COLORS[fg_idx], BG_COLORS[bg_idx])

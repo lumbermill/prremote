@@ -1,3 +1,6 @@
+require_relative '../boards'
+require_relative '../mrbc'
+
 module Prremote
   module Commands
     module SerialHelpers
@@ -16,9 +19,10 @@ module Prremote
         next_ctrl = Time.now + 1
         loop do
           buf << normalize(safe_read(serial, 256))
-          if buf.include?('READY ')
+          # Wait for the whole line: the board= field follows the version.
+          if buf.match?(/READY [^\n]*\n/)
             warn_if_runtime_outdated(buf)
-            return
+            return parse_ready(buf)
           end
           raise 'Timeout waiting for device. Run `prremote reset` if a script is running.' if Time.now > deadline
 
@@ -28,6 +32,23 @@ module Prremote
           end
           sleep 0.05
         end
+      end
+
+      # READY banner fields. board is nil on runtimes older than board names.
+      Ready = Struct.new(:version, :board)
+
+      def parse_ready(buf)
+        m = buf.match(%r{READY prremote-runtime/(\S+)(?: board=(\S+))?})
+        m ? Ready.new(m[1], m[2]) : Ready.new(nil, nil)
+      end
+
+      # Compiles the user's files for the connected device, prepending the
+      # board libraries they reference (see Boards). Logs what was added.
+      def compile_for(ready, rb_paths)
+        sources = rb_paths.map { |f| File.read(f, encoding: 'UTF-8') }
+        libs = Boards.library_paths(sources, ready.board)
+        warn "Adding board library: #{libs.map { |f| File.basename(f) }.join(', ')}" unless libs.empty?
+        Mrbc.compile(*libs, *rb_paths)
       end
 
       def normalize(str)

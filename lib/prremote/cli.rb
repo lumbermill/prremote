@@ -27,7 +27,7 @@ module Prremote
     desc 'install', 'Flash prremote runtime firmware to a supported board'
     option :version, type: :string, desc: "Firmware version to install (default: #{VERSION})"
     option :board, aliases: '-b', type: :string,
-                   desc: "Board type: #{RuntimeManager::BOARDS.join(', ')}"
+                   desc: "Board type: #{Commands::Install.board_names.join(', ')}"
     option :verbose, aliases: '-V', type: :boolean, default: false,
                      desc: 'Print step-by-step flash diagnostics'
     def install
@@ -36,14 +36,14 @@ module Prremote
 
       unless board
         puts "Specify a board with --board / -b. Supported boards:"
-        RuntimeManager::BOARDS.each { |b| puts "  #{b}" }
+        Commands::Install.board_names.each { |b| puts "  #{b}" }
         puts
         puts "Example: prremote install -b esp32c6"
         return
       end
 
-      unless RuntimeManager::BOARDS.include?(board)
-        raise Thor::Error, "Unknown board '#{board}'. Supported boards: #{RuntimeManager::BOARDS.join(', ')}"
+      unless Commands::Install.board_names.include?(board)
+        raise Thor::Error, "Unknown board '#{board}'. Supported boards: #{Commands::Install.board_names.join(', ')}"
       end
 
       Commands::Install.new(version: version, board: board, port: options[:port],
@@ -188,7 +188,8 @@ module Prremote
           next
         end
 
-        return "#{::Regexp.last_match(1)} (#{port})" if buf =~ %r{READY prremote-runtime/([\d.]+)}
+        ready = format_ready(buf, port)
+        return ready if ready
         return '(not responding)' if Time.now > deadline
 
         sleep 0.05
@@ -197,6 +198,16 @@ module Prremote
       "(#{e.message})"
     ensure
       serial&.close
+    end
+
+    # "0.4.1 board=m5stickc_plus (/dev/...)" from a complete READY line, else
+    # nil. Runtimes older than board names omit the board= field.
+    def format_ready(buf, port)
+      m = buf.match(%r{READY prremote-runtime/([\d.]+)(?: board=(\S+))?\s*\n})
+      return nil unless m
+
+      board = m[2] ? " board=#{m[2]}" : ''
+      "#{m[1]}#{board} (#{port})"
     end
 
     def resolve_port

@@ -121,13 +121,31 @@ static bool create_wrap_task(const void *bytecode, const char *name)
   return true;
 }
 
-/* PRREMOTE_VERSION: the runtime version string (same as the READY banner),
- * for scripts that want to show it. Allocated with vm = NULL so it belongs to
- * no VM and survives until the next mrbc_cleanup(); redefined on every exec. */
+/* PRREMOTE_VERSION / PRREMOTE_BOARD: the runtime version and board name (as
+ * in the READY banner), for scripts that want to show or branch on them.
+ * Allocated with vm = NULL so they belong to no VM and survive until the next
+ * mrbc_cleanup(); redefined on every exec. */
+static void define_string_const(const char *name, const char *value)
+{
+  mrbc_value v = mrbc_string_new_cstr(NULL, value);
+  mrbc_set_const(mrbc_symbol(mrbc_symbol_new(NULL, name)), &v);
+}
+
 static void define_version_const(void)
 {
-  mrbc_value v = mrbc_string_new_cstr(NULL, RUNTIME_VERSION);
-  mrbc_set_const(mrbc_symbol(mrbc_symbol_new(NULL, "PRREMOTE_VERSION")), &v);
+  define_string_const("PRREMOTE_VERSION", RUNTIME_VERSION);
+  define_string_const("PRREMOTE_BOARD", prr_board_get());
+}
+
+/* Board names are identifiers the host maps to library files:
+ * lowercase letters, digits and '_' only. */
+static bool valid_board_name(const char *name, int len)
+{
+  for (int i = 0; i < len; i++) {
+    char c = name[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return false;
+  }
+  return true;
 }
 
 static void exec_mrb(void)
@@ -193,12 +211,15 @@ int prr_main(void)
   while (!prr_host_connected()) prr_sleep_ms(10);
 
   while (1) {
-    printf("READY prremote-runtime/" RUNTIME_VERSION "\n");
+    /* Extra fields follow the version after a space; hosts parse the version
+     * as the first token, so older gems keep working. */
+    printf("READY prremote-runtime/" RUNTIME_VERSION " board=%s\n", prr_board_get());
     prr_flush();
 
     /* Scan a 4-byte sliding window for:
      *   "RITE" — run .mrb now (one-shot)
      *   "DPLY" — save .mrb to storage (deploy), then loop back to READY
+     *   "BORD" — record the board name (1-byte length + name; 0 = clear)
      * 0x03 (Ctrl+C) while idle restarts the loop. */
     uint8_t win[4] = {0};
     bool restart = false;
@@ -247,6 +268,21 @@ int prr_main(void)
           printf("DEPLOYED\n");
           prr_flush();
         }
+        restart = true;
+        break;
+      }
+
+      if (memcmp(win, "BORD", 4) == 0) {
+        int  len = prr_getchar_timeout(2000);
+        char name[PRR_BOARD_NAME_MAX] = {0};
+        if (len < 0 || len >= PRR_BOARD_NAME_MAX ||
+            (len > 0 && !recv_exact((uint8_t *)name, len)) ||
+            !valid_board_name(name, len) || !prr_board_set(name)) {
+          printf("ERROR board\n");
+        } else {
+          printf("BOARD %s\n", prr_board_get());
+        }
+        prr_flush();
         restart = true;
         break;
       }

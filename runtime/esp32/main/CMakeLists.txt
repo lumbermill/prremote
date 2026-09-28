@@ -50,6 +50,7 @@ set(SOCKET_SOURCES
 idf_component_register(
   SRCS
     ${PRR_SRC}/runtime.c
+    ${PRR_SRC}/board_esp_idf.c
     platform_esp32.c
     bindings_esp32.c
     bindings_wifi_esp32.c
@@ -81,6 +82,7 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
   HAS_SOCKET=1
   HAS_UDP_SOCKET=1
   RUNTIME_VERSION="${RUNTIME_VERSION}"
+  PRR_DEFAULT_BOARD="esp32"
   MRB_BUFFER_SIZE_KB=64
 )
 

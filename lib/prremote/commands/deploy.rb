@@ -1,6 +1,3 @@
-require 'open3'
-require 'tempfile'
-require_relative '../mrbc'
 require_relative 'serial_helpers'
 
 module Prremote
@@ -19,30 +16,22 @@ module Prremote
       def call(*rb_paths)
         rb_paths.each { |f| raise "File not found: #{f}" unless File.exist?(f) }
 
-        warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
-        mrb_data = compile(*rb_paths)
-
-        warn 'Deploying to flash...'
-        deploy_to_device(mrb_data, rb_paths)
+        deploy_to_device(rb_paths)
         warn 'Deployed. Script will run automatically on next boot.'
       end
 
       private
 
-      def compile(*rb_paths)
-        Mrbc.check_version!
-        tmp = Tempfile.new(['prremote', '.mrb'])
-        out, status = Open3.capture2e(Mrbc.bin, '-o', tmp.path, *rb_paths)
-        raise "mrbc failed:\n#{out.chomp}" unless status.success?
-
-        File.binread(tmp.path)
-      ensure
-        tmp&.close!
-      end
-
-      def deploy_to_device(mrb_data, rb_paths)
+      # Connects before compiling so the board libraries match the device
+      # (see Run#run_on_device).
+      def deploy_to_device(rb_paths)
         serial = Serial.new(@port, @baud)
-        wait_for_ready(serial)
+        ready = wait_for_ready(serial)
+
+        warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
+        mrb_data = compile_for(ready, rb_paths)
+
+        warn 'Deploying to flash...'
         write_chunked(serial, DEPLOY_MAGIC + build_meta_packet(rb_paths) + mrb_data)
         wait_for_deployed(serial)
       ensure

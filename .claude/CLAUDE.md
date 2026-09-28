@@ -73,6 +73,17 @@ gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
 - picoruby の Ruby クラス・メソッド名に縛られない。
   GPIO のビットフラグ方式など、picoruby の設計が冗長・複雑な箇所は prremote の API を優先する。
 
+#### ボードライブラリ（`lib/prremote/boards/`）— ボード固有の便利クラスはランタイムに入れない
+- 1 つのランタイムイメージを複数ボードが共有する（esp32 = M5GO / M5StickC PLUS）ため、
+  ボード固有クラス（`M5StickCPlus`）やチップドライバ（`BM8563`）は **gem 同梱の Ruby ファイル**にし、
+  ランタイムには組み込まない。共有イメージのシンボル表（`MAX_SYMBOLS_COUNT=500`、動的 256 使用済み@0.4.0）と
+  ヒープ（96KB）を使わないボードにまで払わせないため。更新も gem だけで済む。
+- ボード名は `install -b <board>` が `BORD` コマンドでランタイムに記録（ESP-IDF は NVS）し、
+  READY 行の `board=` で返る。CLI は接続後に READY を読んでからコンパイルし、
+  スクリプトが参照する定数に応じてライブラリを前置する（`Prremote::Boards`）。
+- 新ボードを足すときは `Boards::FIRMWARE`（共有イメージの対応）と `Boards::LIBRARIES` に登録し、
+  ファイル冒頭に使い方コメント・サンプルを同時にコミットする。
+
 #### サンプル・ドキュメント方針
 - 独自 API を採用した以上、`examples/` のサンプルと将来の README / docs が
   picoruby に代わる唯一の参照になる。

@@ -38,6 +38,17 @@ int  prr_getchar_timeout(uint32_t ms) { return getchar_timeout_us((uint32_t)ms *
 void prr_flush(void) { stdio_flush(); }
 void prr_sleep_ms(uint32_t ms) { sleep_ms(ms); }
 
+/* ── board identity ──────────────────────────────────────────────────────── */
+/* Each Pico board has its own image, so the build's name is the only answer;
+ * only setting it to that same name (or clearing it) is accepted. */
+
+const char *prr_board_get(void) { return PRR_DEFAULT_BOARD; }
+
+bool prr_board_set(const char *name)
+{
+  return name[0] == '\0' || strcmp(name, PRR_DEFAULT_BOARD) == 0;
+}
+
 /* ── persistent script storage ───────────────────────────────────────────── */
 
 bool prr_storage_has_script(void)

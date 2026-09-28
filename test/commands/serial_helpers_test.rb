@@ -52,3 +52,19 @@ class SerialHelpersTest < Minitest::Test
     parts.join('.')
   end
 end
+
+class ParseReadyTest < Minitest::Test
+  include Prremote::Commands::SerialHelpers
+
+  def test_with_board
+    r = parse_ready("READY prremote-runtime/0.4.1 board=m5stickc_plus\n")
+    assert_equal '0.4.1', r.version
+    assert_equal 'm5stickc_plus', r.board
+  end
+
+  def test_without_board_on_older_runtimes
+    r = parse_ready("READY prremote-runtime/0.4.0\n")
+    assert_equal '0.4.0', r.version
+    assert_nil r.board
+  end
+end

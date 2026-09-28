@@ -64,7 +64,8 @@ Flash the prremote runtime firmware to a supported board.
 prremote install                          # show supported boards
 prremote install -b picow                 # Pico W
 prremote install -b pico                  # Pico (no wireless)
-prremote install -b esp32                 # ESP32 (M5GO / M5Stack Core, M5StickC PLUS, etc.)
+prremote install -b esp32                 # ESP32 (M5GO / M5Stack Core, etc.)
+prremote install -b m5stickc_plus         # M5StickC PLUS (esp32 runtime + board library)
 prremote install -b esp32c6               # ESP32-C6 (e.g. XIAO ESP32C6)
 prremote install -b picow --version 0.1.1 # specify a runtime version
 ```
@@ -80,6 +81,8 @@ ESP32 (classic): no button dance and no extra tools needed — the firmware is w
 ESP32-C6: flashing is delegated to [esptool](https://docs.espressif.com/projects/esptool/en/latest/), because the C6 boot ROM rejects the direct write the classic ESP32 accepts. Install it first (`brew install esptool`, or `pip3 install esptool`). The C6's USB Serial/JTAG port is reset into the boot ROM over USB, so no buttons are needed; only if that fails does prremote fall back to waiting for manual bootloader mode — on the XIAO ESP32C6, hold **BOOT**, press **RST**, then release both.
 
 Reflashing the runtime does not erase a deployed script on either chip.
+
+Board names such as `m5stickc_plus` install the runtime image of their chip (esp32) and record the board name on the device, which the runtime then reports (`prremote version` shows `board=m5stickc_plus`). That name decides which [board libraries](#board-libraries) scripts can use; installing with the plain chip name (`-b esp32`) clears it.
 
 ---
 
@@ -177,8 +180,8 @@ Show the gem version, mrbc version, and the connected device's runtime version.
 
 ```bash
 prremote version
-# prremote: 0.4.0
-# runtime:  0.4.0 (/dev/tty.usbmodem101)
+# prremote: 0.4.1
+# runtime:  0.4.1 board=picow (/dev/tty.usbmodem101)
 # mrbc: mruby 4.0.0 (2026-04-20) (/opt/homebrew/bin/mrbc)
 ```
 
@@ -210,6 +213,25 @@ prremote watch app.rb     # auto-run on every file save
 prremote deploy app.rb
 prremote undeploy         # remove from flash
 ```
+
+---
+
+## Board libraries
+
+Some boards come with a Ruby library for their built-in hardware. You don't load it yourself: when a script mentions one of its classes, `run` / `deploy` / `watch` / `eval` compile the library in ahead of your files (it prints `Adding board library: ...`). Scripts that don't mention it pay nothing on the device.
+
+| Board (`install -b`) | Classes | Covers |
+|---|---|---|
+| `m5stickc_plus` | `M5StickCPlus`, `BM8563` | AXP192 power-on, LCD preset per rotation, buttons A/B, red LED, buzzer, IR LED, BM8563 RTC (as `Time`) |
+
+```ruby
+stick = M5StickCPlus.new            # powers the LCD
+lcd = stick.lcd(rotation: 1)        # pins / size / RAM offset / color order preset
+lcd.text(4, 4, stick.rtc.time.to_s, scale: 1)
+stick.led.on if stick.button_a.pressed?
+```
+
+A board library is refused if the device reports a different board (e.g. `M5StickCPlus` on an esp32c6). Chip drivers such as `BM8563` work on any board. The library sources live in [lib/prremote/boards/](lib/prremote/boards/) and double as the reference for driving the hardware directly.
 
 ---
 
