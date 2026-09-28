@@ -13,21 +13,19 @@ module Prremote
       def call(*rb_paths)
         rb_paths.each { |f| raise "File not found: #{f}" unless File.exist?(f) }
 
-        run_on_device(rb_paths)
+        warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
+        mrb_data = compile_with_boards(rb_paths)
+
+        run_on_device(mrb_data, rb_paths)
       rescue Interrupt
         warn ''
       end
 
       private
 
-      # Connects first: the READY banner names the board, which decides the
-      # board libraries compiled in with the script.
-      def run_on_device(rb_paths)
+      def run_on_device(mrb_data, rb_paths)
         serial = Serial.new(@port, @baud)
-        ready = wait_for_ready(serial)
-
-        warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
-        mrb_data = compile_for(ready, rb_paths)
+        check_board!(wait_for_ready(serial), rb_paths)
 
         warn 'Running...'
         write_chunked(serial, mrb_data)

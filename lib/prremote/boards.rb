@@ -39,16 +39,23 @@ module Prremote
       FIRMWARE.keys
     end
 
-    # Library file paths to compile ahead of the user's sources, in dependency
-    # order. `board` is the device's reported board (nil if the runtime is too
-    # old to report one). Raises if a referenced library is for another board.
-    def library_paths(sources, board)
-      wanted = LIBRARIES.select { |lib| referenced?(lib, sources) }
-      wanted.each { |lib| check_board!(lib, board) }
+    # Libraries the sources reference directly.
+    def referenced(sources)
+      LIBRARIES.select { |lib| referenced?(lib, sources) }
+    end
 
+    # Library file paths to compile ahead of the user's sources, in dependency
+    # order. Depends only on the sources, so it can run before connecting.
+    def library_paths(sources)
       files = []
-      wanted.each { |lib| add_with_requires(lib.file, files) }
+      referenced(sources).each { |lib| add_with_requires(lib.file, files) }
       files.map { |f| File.join(LIB_DIR, f) }
+    end
+
+    # Raises if a referenced library is for another board than the device's
+    # (`board` is nil when the runtime is too old to report one).
+    def check!(sources, board)
+      referenced(sources).each { |lib| check_board!(lib, board) }
     end
 
     def referenced?(lib, sources)

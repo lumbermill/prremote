@@ -16,20 +16,18 @@ module Prremote
       def call(*rb_paths)
         rb_paths.each { |f| raise "File not found: #{f}" unless File.exist?(f) }
 
-        deploy_to_device(rb_paths)
+        warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
+        mrb_data = compile_with_boards(rb_paths)
+
+        deploy_to_device(mrb_data, rb_paths)
         warn 'Deployed. Script will run automatically on next boot.'
       end
 
       private
 
-      # Connects before compiling so the board libraries match the device
-      # (see Run#run_on_device).
-      def deploy_to_device(rb_paths)
+      def deploy_to_device(mrb_data, rb_paths)
         serial = Serial.new(@port, @baud)
-        ready = wait_for_ready(serial)
-
-        warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
-        mrb_data = compile_for(ready, rb_paths)
+        check_board!(wait_for_ready(serial), rb_paths)
 
         warn 'Deploying to flash...'
         write_chunked(serial, DEPLOY_MAGIC + build_meta_packet(rb_paths) + mrb_data)
