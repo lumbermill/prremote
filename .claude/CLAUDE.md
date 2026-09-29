@@ -79,8 +79,9 @@ gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
   ランタイムには組み込まない。共有イメージのシンボル表（`MAX_SYMBOLS_COUNT=500`、動的 256 使用済み@0.4.0）と
   ヒープ（96KB）を使わないボードにまで払わせないため。更新も gem だけで済む。
 - ボード名は `install -b <board>` が `BORD` コマンドでランタイムに記録（ESP-IDF は NVS）し、
-  READY 行の `board=` で返る。CLI は接続後に READY を読んでからコンパイルし、
-  スクリプトが参照する定数に応じてライブラリを前置する（`Prremote::Boards`）。
+  READY 行の `board=` で返る。CLI はスクリプトが参照する定数に応じてライブラリを前置して
+  **接続前に**コンパイルし（READY〜送信の間を空けない。ESP32 はポートを開くとリセットされうる）、
+  READY の `board=` で対象ボードかを検査する（`Prremote::Boards`）。
 - 新ボードを足すときは `Boards::FIRMWARE`（共有イメージの対応）と `Boards::LIBRARIES` に登録し、
   ファイル冒頭に使い方コメント・サンプルを同時にコミットする。
 
