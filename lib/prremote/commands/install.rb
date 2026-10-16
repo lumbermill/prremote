@@ -9,11 +9,13 @@ module Prremote
 
       BOARD_MAGIC = 'BORD'.freeze
 
+      DEVICE_LABELS = { 'pico' => 'Pico', 'picow' => 'Pico W', 'pico2' => 'Pico 2' }.freeze
+
       # The UF2 bootloader exposes this file on the BOOTSEL volume.
       BOOTSEL_MARKER = 'INFO_UF2.TXT'.freeze
-      # RP2350 and other vendors' UF2 bootloaders expose INFO_UF2.TXT too, so
-      # the Board-ID line is what tells an RP2040 apart from them.
-      BOOTSEL_BOARD_ID = /^Board-ID:\s*RPI-RP2\s*$/
+
+      # Boards whose install path has not been run on real hardware yet.
+      UNVERIFIED_BOARDS = %w[pico2].freeze
 
       # board may be a runtime image name (esp32) or a board sharing one
       # (m5stickc_plus → esp32 image); see Boards::FIRMWARE.
@@ -35,13 +37,13 @@ module Prremote
 
         uf2_path = RuntimeManager.fetch(@version, @board)
 
-        device_label = @board == 'picow' ? 'Pico W' : 'Pico'
+        warn_unverified
         puts "Put the #{device_label} into BOOTSEL mode:"
         puts '  1. Hold the BOOTSEL button'
         puts '  2. Connect USB (or press RUN while holding BOOTSEL)'
-        puts '  3. Release BOOTSEL — RPI-RP2 should appear as a USB drive'
+        puts "  3. Release BOOTSEL — #{volume_name} should appear as a USB drive"
         puts
-        puts 'Waiting for RPI-RP2...'
+        puts "Waiting for #{volume_name}..."
 
         volume = wait_for_volume
         puts "Copying firmware to #{volume}..."
@@ -104,19 +106,38 @@ module Prremote
         end
       end
 
+      def warn_unverified
+        return unless UNVERIFIED_BOARDS.include?(@board)
+
+        warn "NOTE: installing on #{device_label} has not been verified on real hardware yet."
+        warn '      Please report the result at https://github.com/lumbermill/prremote/issues'
+      end
+
+      def device_label
+        DEVICE_LABELS.fetch(@board, 'Pico')
+      end
+
+      # The RP2040 boot ROM mounts its BOOTSEL drive as RPI-RP2; the RP2350
+      # (Pico 2) boot ROM uses RP2350 instead. INFO_UF2.TXT carries the same
+      # name as its Board-ID.
+      def volume_name
+        @board == 'pico2' ? 'RP2350' : 'RPI-RP2'
+      end
+
       def volume_paths
+        user = ENV.fetch('USER', nil)
         [
-          '/Volumes/RPI-RP2',
-          "/run/media/#{ENV.fetch('USER', nil)}/RPI-RP2",
-          "/media/#{ENV.fetch('USER', nil)}/RPI-RP2"
+          "/Volumes/#{volume_name}",
+          "/run/media/#{user}/#{volume_name}",
+          "/media/#{user}/#{volume_name}"
         ] + drive_letter_volume_paths
       end
 
       # WSL reaches the Windows drive letter the BOOTSEL volume lands on through
-      # drvfs at /mnt/<letter>. That path carries no RPI-RP2 volume name, so the
+      # drvfs at /mnt/<letter>. That path carries no volume name, so the
       # marker file is what identifies the board.
       def drive_letter_volume_paths
-        drive_letter_roots.select { |root| rp2040_bootsel?(root) }
+        drive_letter_roots.select { |root| bootsel_volume?(root) }
       end
 
       # /mnt/c is the Windows system drive; the board never lands there, so the
@@ -125,9 +146,11 @@ module Prremote
         ('d'..'z').map { |letter| "/mnt/#{letter}" }
       end
 
-      def rp2040_bootsel?(root)
+      # Other UF2 bootloaders (and the other RP2 chip) expose INFO_UF2.TXT
+      # too, so the Board-ID line is what tells the target chip apart.
+      def bootsel_volume?(root)
         marker = File.join(root, BOOTSEL_MARKER)
-        File.file?(marker) && BOOTSEL_BOARD_ID.match?(File.read(marker))
+        File.file?(marker) && /^Board-ID:\s*#{Regexp.escape(volume_name)}\s*$/.match?(File.read(marker))
       rescue SystemCallError
         false
       end
@@ -137,7 +160,7 @@ module Prremote
         loop do
           path = volume_paths.find { |p| File.directory?(p) }
           return path if path
-          raise "Timed out waiting for RPI-RP2 volume (#{timeout}s)" if Time.now > deadline
+          raise "Timed out waiting for #{volume_name} volume (#{timeout}s)" if Time.now > deadline
 
           sleep 1
         end

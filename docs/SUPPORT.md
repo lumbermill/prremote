@@ -10,7 +10,7 @@ prremote が対応しているボード × 機能の一覧と、リリース後�
 
 | 機能 | pico | picow | pico2 (RP2350) | esp32 (M5GO) | M5StickC PLUS⁵ | esp32c6 (XIAO) |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| install（書き込み） | ✅ UF2 | ✅ UF2 | ✅ UF2 | ✅ EspFlasher | ✅ EspFlasher⁵ | ✅ esptool¹ |
+| install（書き込み） | ✅ UF2 | ✅ UF2 | 🧪 UF2 | ✅ EspFlasher | ✅ EspFlasher⁵ | ✅ esptool¹ |
 | run / eval / watch | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | deploy / undeploy | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | GPIO | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |

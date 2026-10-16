@@ -112,4 +112,64 @@ class InstallTest < Minitest::Test
       assert_match(/Timed out waiting for device to reboot/, error.message)
     end
   end
+
+  def test_pico2_waits_for_rp2350_volume
+    install = Prremote::Commands::Install.new(board: 'pico2')
+    install.stub(:drive_letter_roots, []) do
+      paths = install.send(:volume_paths)
+      assert_includes paths, '/Volumes/RP2350'
+      assert(paths.all? { |p| p.end_with?('/RP2350') })
+    end
+  end
+
+  def test_rp2040_boards_wait_for_rpi_rp2_volume
+    %w[pico picow].each do |board|
+      install = Prremote::Commands::Install.new(board: board)
+      install.stub(:drive_letter_roots, []) do
+        paths = install.send(:volume_paths)
+        assert_includes paths, '/Volumes/RPI-RP2'
+        assert(paths.all? { |p| p.end_with?('/RPI-RP2') })
+      end
+    end
+  end
+
+  # Under WSL, pico2 must pick the RP2350 drive and skip an RP2040 one.
+  def test_pico2_drive_letter_volume_matches_rp2350_board_id
+    install = Prremote::Commands::Install.new(board: 'pico2')
+    with_bootsel_volume(board_id: 'RP2350') do |rp2350|
+      with_bootsel_volume do |rp2040|
+        install.stub(:drive_letter_roots, [rp2040, rp2350]) do
+          assert_equal [rp2350], install.send(:drive_letter_volume_paths)
+        end
+      end
+    end
+  end
+
+  def test_pico2_copies_uf2_to_rp2350_volume
+    Dir.mktmpdir do |dir|
+      uf2 = File.join(dir, 'prremote-pico2-runtime-0.3.2.uf2')
+      File.write(uf2, 'uf2')
+      volume = File.join(dir, 'RP2350')
+      Dir.mkdir(volume)
+      cmd = Prremote::Commands::Install.new(version: '0.3.2', board: 'pico2')
+
+      out, err = capture_io do
+        Prremote::RuntimeManager.stub(:fetch, uf2) do
+          cmd.stub(:volume_paths, [volume]) do
+            cmd.stub(:wait_for_unmount, nil) { cmd.call }
+          end
+        end
+      end
+
+      assert File.exist?(File.join(volume, File.basename(uf2)))
+      assert_match(/Put the Pico 2 into BOOTSEL mode/, out)
+      assert_match(/Waiting for RP2350\.\.\./, out)
+      assert_match(/not been verified on real hardware/, err)
+    end
+  end
+
+  def test_rp2040_install_prints_no_unverified_note
+    _, err = capture_io { Prremote::Commands::Install.new(board: 'picow').send(:warn_unverified) }
+    assert_empty err
+  end
 end

@@ -20,6 +20,7 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 - Supported hosts: macOS, Linux, and WSL2 — see [WSL](#wsl) for the extra setup WSL needs
 - Supported boards:
   - [Raspberry Pi Pico W](https://www.raspberrypi.com/products/raspberry-pi-pico-w/) / [Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
+  - [Raspberry Pi Pico 2](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) (RP2350) — `install` not yet verified on real hardware; reports welcome
   - ESP32 (classic) — e.g. [M5GO / M5Stack Core gen1](https://docs.m5stack.com/en/core/m5go), [M5StickC PLUS](https://docs.m5stack.com/en/core/m5stickc_plus), generic [ESP32](https://www.espressif.com/en/products/socs/esp32) dev boards
   - ESP32-C6 (RISC-V) — e.g. [Seeed Studio XIAO ESP32C6](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/)
   - Per-board feature status (GPIO / ADC / PWM / I2C / SPI / WiFi / sockets / LCD / IR): [docs/SUPPORT.md](docs/SUPPORT.md)
@@ -65,6 +66,7 @@ Flash the prremote runtime firmware to a supported board.
 prremote install                          # show supported boards
 prremote install -b picow                 # Pico W
 prremote install -b pico                  # Pico (no wireless)
+prremote install -b pico2                 # Pico 2 (RP2350)
 prremote install -b esp32                 # ESP32 (M5GO / M5Stack Core, etc.)
 prremote install -b m5stickc_plus         # M5StickC PLUS (esp32 runtime + board library)
 prremote install -b esp32c6               # ESP32-C6 (e.g. XIAO ESP32C6)
@@ -75,7 +77,7 @@ prremote install -b picow --version 0.1.1 # specify a runtime version
 
 The firmware is downloaded from GitHub Releases on first use and cached in `~/.prremote/runtime/`. Subsequent installs use the cache.
 
-Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted.
+Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted. The drive appears as `RPI-RP2` on Pico / Pico W and as `RP2350` on Pico 2.
 
 ESP32 (classic): no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5).
 
@@ -236,7 +238,7 @@ ESP32 boards need neither step in WSL beyond the usbipd attach, since they are f
 
 ```bash
 # First-time setup
-prremote install -b picow     # or: pico / esp32 / esp32c6
+prremote install -b picow     # or: pico / pico2 / esp32 / esp32c6
 
 # Manual cycle
 prremote run app.rb       # compile + run (one-shot)
