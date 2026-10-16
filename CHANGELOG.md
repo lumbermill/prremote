@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-16
+
 ### Fixed
 
 - `prremote install -b pico2` was rejected as an unknown board even though the pico2 (RP2350) UF2 is built and published with every runtime release. `pico2` is now in `RuntimeManager::BOARDS` (fetching/caching `prremote-pico2-runtime-X.Y.Z.uf2`), and the install command waits for and copies to the RP2350 boot ROM's `RP2350` BOOTSEL drive instead of `RPI-RP2` (macOS `/Volumes`, Linux `/run/media` / `/media`, and WSL `/mnt/<letter>`, where `INFO_UF2.TXT` must read `Board-ID: RP2350`), with the prompt naming the right board and drive. Pico / Pico W behave exactly as before. Because the path has not been run on a physical Pico 2, `install -b pico2` prints a note asking for a report, and docs/SUPPORT.md marks its install as 🧪. README now lists the Pico 2. _Unit-tested only; not yet exercised on a physical Pico 2._
