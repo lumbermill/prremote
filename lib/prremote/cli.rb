@@ -112,6 +112,8 @@ module Prremote
       devices = Detector.new.list_devices
       if devices.empty?
         puts 'No serial devices found.'
+        hint = Detector.no_device_hint
+        puts hint if hint
       else
         devices.each { |d| puts "#{d[:port]}  (#{d[:label]})" }
       end

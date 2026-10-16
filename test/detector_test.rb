@@ -1,8 +1,59 @@
 require_relative 'test_helper'
+require 'tmpdir'
+require 'fileutils'
 
 class DetectorTest < Minitest::Test
   def setup
     @detector = Prremote::Detector.new
+  end
+
+  # Mirrors the sysfs shape of a tty node: the device link lands on the USB
+  # interface, and idVendor sits some way above it. Returns the interface dir.
+  def with_sysfs_tree(depth:, vendor: nil)
+    Dir.mktmpdir do |root|
+      File.write(File.join(root, 'idVendor'), "#{vendor}\n") if vendor
+      interface = File.join(root, Array.new(depth) { |i| "level#{i}" }.join('/'))
+      FileUtils.mkdir_p(interface)
+      yield interface
+    end
+  end
+
+  def test_linux_vendor_id_walks_up_to_the_usb_device
+    skip 'Linux-only lookup' unless RbConfig::CONFIG['host_os'] =~ /linux/
+
+    # Under WSL the chain hangs off vhci_hcd, which sits at a different depth
+    # than the PCI controller a native host walks up to.
+    with_sysfs_tree(depth: 3, vendor: '2e8a') do |interface|
+      File.stub(:realpath, interface) do
+        assert_equal '2e8a', @detector.send(:linux_vendor_id, '/dev/ttyACM0')
+      end
+    end
+  end
+
+  def test_linux_vendor_id_finds_vendor_directly_above_the_interface
+    skip 'Linux-only lookup' unless RbConfig::CONFIG['host_os'] =~ /linux/
+
+    with_sysfs_tree(depth: 1, vendor: '10c4') do |interface|
+      File.stub(:realpath, interface) do
+        assert_equal '10c4', @detector.send(:linux_vendor_id, '/dev/ttyUSB0')
+      end
+    end
+  end
+
+  def test_linux_vendor_id_returns_nil_when_no_vendor_file
+    skip 'Linux-only lookup' unless RbConfig::CONFIG['host_os'] =~ /linux/
+
+    with_sysfs_tree(depth: 3) do |interface|
+      File.stub(:realpath, interface) do
+        assert_nil @detector.send(:linux_vendor_id, '/dev/ttyACM0')
+      end
+    end
+  end
+
+  def test_linux_vendor_id_returns_nil_for_missing_port
+    skip 'Linux-only lookup' unless RbConfig::CONFIG['host_os'] =~ /linux/
+
+    assert_nil @detector.send(:linux_vendor_id, '/dev/ttyACM-does-not-exist')
   end
 
   def test_list_devices_returns_array

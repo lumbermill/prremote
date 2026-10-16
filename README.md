@@ -2,7 +2,7 @@
 
 > ⚠️ This project is in early development. APIs and commands are subject to change.
 
-**prremote** is a command-line tool for deploying and running Ruby scripts on a Raspberry Pi Pico W or ESP32 (e.g. M5Stack) over USB serial. It ships a minimal [mruby/c](https://github.com/mrubyc/mrubyc) runtime firmware and lets you compile and send `.rb` files from your Mac or Linux machine directly to the device.
+**prremote** is a command-line tool for deploying and running Ruby scripts on a Raspberry Pi Pico W or ESP32 (e.g. M5Stack) over USB serial. It ships a minimal [mruby/c](https://github.com/mrubyc/mrubyc) runtime firmware and lets you compile and send `.rb` files from your Mac, Linux or WSL2 machine directly to the device.
 
 Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) for MicroPython.
 
@@ -17,6 +17,7 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 ## Requirements
 
 - Ruby 3.4 or later
+- Supported hosts: macOS, Linux, and WSL2 — see [WSL](#wsl) for the extra setup WSL needs
 - Supported boards:
   - [Raspberry Pi Pico W](https://www.raspberrypi.com/products/raspberry-pi-pico-w/) / [Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
   - ESP32 (classic) — e.g. [M5GO / M5Stack Core gen1](https://docs.m5stack.com/en/core/m5go), [M5StickC PLUS](https://docs.m5stack.com/en/core/m5stickc_plus), generic [ESP32](https://www.espressif.com/en/products/socs/esp32) dev boards
@@ -184,6 +185,41 @@ prremote version
 # runtime:  0.4.1 board=picow (/dev/tty.usbmodem101)
 # mrbc: mruby 4.0.0 (2026-04-20) (/opt/homebrew/bin/mrbc)
 ```
+
+---
+
+## WSL
+
+prremote runs under WSL2, but two things are not automatic there.
+
+**USB serial devices are not forwarded.** WSL2 does not pass USB through to the guest, so a board Windows sees perfectly well has no `/dev/ttyACM*` on the Linux side. Install [usbipd-win](https://github.com/dorssel/usbipd-win) on the Windows side and attach the board:
+
+```powershell
+winget install --exact dorssel.usbipd-win
+usbipd list                              # note the BUSID of your board
+usbipd bind --busid <BUSID>              # once, as Administrator
+usbipd attach --wsl --busid <BUSID>      # after every reconnect
+```
+
+Then, in WSL:
+
+```bash
+prremote list        # /dev/ttyACM0 should now show up
+```
+
+If the port is there but cannot be opened, add yourself to the `dialout` group (`sudo usermod -aG dialout $USER`) and restart WSL with `wsl --shutdown`.
+
+**Removable drives are not mounted.** For Pico boards, the BOOTSEL volume arrives as a Windows drive letter, which WSL does not mount on its own. Mount it before running `install`:
+
+```bash
+sudo mkdir -p /mnt/d
+sudo mount -t drvfs D: /mnt/d    # use the drive letter RPI-RP2 was assigned
+prremote install -b picow
+```
+
+`install` scans `/mnt/d` through `/mnt/z` for the BOOTSEL volume, so the mount point only has to match the drive letter.
+
+ESP32 boards need neither step in WSL beyond the usbipd attach, since they are flashed over the serial port.
 
 ---
 

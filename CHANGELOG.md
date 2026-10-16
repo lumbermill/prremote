@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `install` could not find the BOOTSEL volume on WSL, so flashing a Pico board timed out with `Timed out waiting for RPI-RP2 volume (60s)` even though the drive was mounted and visible. `Commands::Install#volume_paths` only looked at `/Volumes` (macOS) and the udisks2 mount points (`/run/media/$USER`, `/media/$USER`), neither of which exists there: WSL reaches the Windows drive letter through drvfs at `/mnt/<letter>`. The scan now also walks `/mnt/d`–`/mnt/z`, identifying the board by the `INFO_UF2.TXT` the bootloader exposes — and only when it reads `Board-ID: RPI-RP2`, since RP2350 and other UF2 bootloaders ship the same file — because a drive letter carries no volume name to match `RPI-RP2` against. The runtime download path was never affected — only the copy target was. _Verified on Windows 11 + WSL2 (Ubuntu 22.04) against an RP2040 in BOOTSEL mode, where the volume mounts as `D:`._
+- `wait_for_unmount` now waits for `INFO_UF2.TXT` to disappear rather than for the directory itself to go away. Under WSL the `/mnt/<letter>` mount point outlives the drive it pointed at, so the directory check would have reported the board as still present for the full 30 s after a successful write.
+- `prremote list` labelled every Linux port `unknown` when the USB device did not sit exactly three levels above the tty node in sysfs. `Detector#port_label` read `/sys/class/tty/<port>/device/../../../idVendor`, a fixed depth that does not hold across host shapes: a ttyUSB bridge adds a level the native-CDC ttyACM nodes do not, and under WSL the chain hangs off `vhci_hcd` rather than a PCI controller. The lookup now walks up from the tty's device node until it finds `idVendor`. _Reproduced with a Pico W attached to WSL through usbipd-win, where the vendor file sits one level above the interface and the board was reported as `(unknown)` despite `idVendor` reading `2e8a`._
+
+### Added
+
+- WSL2 is now documented as a supported host. The new **WSL** section in the README covers the usbipd-win attach WSL needs before any board appears as `/dev/ttyACM*`, and the `mount -t drvfs` step `install` needs before a Pico can be flashed from WSL.
+- `prremote list` and ESP32 `install` now point at usbipd-win when they find no device and are running under WSL, where a missing attach — not a missing board — is the usual cause. `Detector.wsl?` detects this from `/proc/version`.
+
 ## [0.4.1] - 2026-09-29
 
 ### Added

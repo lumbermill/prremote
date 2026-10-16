@@ -9,6 +9,12 @@ module Prremote
 
       BOARD_MAGIC = 'BORD'.freeze
 
+      # The UF2 bootloader exposes this file on the BOOTSEL volume.
+      BOOTSEL_MARKER = 'INFO_UF2.TXT'.freeze
+      # RP2350 and other vendors' UF2 bootloaders expose INFO_UF2.TXT too, so
+      # the Board-ID line is what tells an RP2040 apart from them.
+      BOOTSEL_BOARD_ID = /^Board-ID:\s*RPI-RP2\s*$/
+
       # board may be a runtime image name (esp32) or a board sharing one
       # (m5stickc_plus → esp32 image); see Boards::FIRMWARE.
       def initialize(version: VERSION, board: 'picow', port: nil, verbose: false)
@@ -54,7 +60,11 @@ module Prremote
       def install_esp32
         image = RuntimeManager.fetch(@version, @firmware)
         port  = @port || Detector.find_device
-        raise 'No serial device found. Connect the board or pass --port.' unless port
+        unless port
+          message = 'No serial device found. Connect the board or pass --port.'
+          hint    = Detector.no_device_hint
+          raise [message, hint].compact.join("\n")
+        end
 
         puts "Flashing #{File.basename(image)} to #{port}..."
         EspFlasher.flash(port: port, image_path: image, board: @firmware, verbose: @verbose)
@@ -99,7 +109,27 @@ module Prremote
           '/Volumes/RPI-RP2',
           "/run/media/#{ENV.fetch('USER', nil)}/RPI-RP2",
           "/media/#{ENV.fetch('USER', nil)}/RPI-RP2"
-        ]
+        ] + drive_letter_volume_paths
+      end
+
+      # WSL reaches the Windows drive letter the BOOTSEL volume lands on through
+      # drvfs at /mnt/<letter>. That path carries no RPI-RP2 volume name, so the
+      # marker file is what identifies the board.
+      def drive_letter_volume_paths
+        drive_letter_roots.select { |root| rp2040_bootsel?(root) }
+      end
+
+      # /mnt/c is the Windows system drive; the board never lands there, so the
+      # scan starts at D.
+      def drive_letter_roots
+        ('d'..'z').map { |letter| "/mnt/#{letter}" }
+      end
+
+      def rp2040_bootsel?(root)
+        marker = File.join(root, BOOTSEL_MARKER)
+        File.file?(marker) && BOOTSEL_BOARD_ID.match?(File.read(marker))
+      rescue SystemCallError
+        false
       end
 
       def wait_for_volume(timeout: 60)
@@ -113,14 +143,24 @@ module Prremote
         end
       end
 
+      # The board reboots as soon as the UF2 lands, which tears the volume down.
+      # Testing the marker rather than the directory covers the WSL case, where
+      # the /mnt/<letter> mountpoint outlives the drive it pointed at.
       def wait_for_unmount(volume, timeout: 30)
         deadline = Time.now + timeout
         loop do
-          return unless File.directory?(volume)
+          return unless mounted?(volume)
           raise "Timed out waiting for device to reboot (#{timeout}s)" if Time.now > deadline
 
           sleep 1
         end
+      end
+
+      def mounted?(volume)
+        File.directory?(volume) && File.file?(File.join(volume, BOOTSEL_MARKER))
+      rescue SystemCallError
+        # A stale drvfs mountpoint raises instead of reporting the drive as gone.
+        false
       end
     end
   end
