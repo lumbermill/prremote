@@ -6,29 +6,26 @@ class InstallTest < Minitest::Test
     @install = Prremote::Commands::Install.new(board: 'picow')
   end
 
-  # Stands in for a BOOTSEL volume: the bootloader always exposes INFO_UF2.TXT.
-  def with_bootsel_volume
+  # Stands in for a BOOTSEL volume, with INFO_UF2.TXT as an RP2040 writes it.
+  def with_bootsel_volume(board_id: 'RPI-RP2')
     Dir.mktmpdir do |dir|
-      File.write(File.join(dir, Prremote::Commands::Install::BOOTSEL_MARKER), "Board-ID: RPI-RP2\n")
+      File.write(File.join(dir, Prremote::Commands::Install::BOOTSEL_MARKER),
+                 "UF2 Bootloader v3.0\nModel: Raspberry Pi RP2\nBoard-ID: #{board_id}\n")
       yield dir
     end
   end
 
-  def test_drive_letter_roots_cover_windows_and_wsl_spellings
+  def test_drive_letter_roots_cover_wsl_mount_points
     roots = @install.send(:drive_letter_roots)
 
-    assert_includes roots, 'D:/'
     assert_includes roots, '/mnt/d'
-    assert_includes roots, 'Z:/'
     assert_includes roots, '/mnt/z'
+    refute(roots.any? { |root| root.match?(/\A[A-Z]:/) })
   end
 
-  # C: is the system drive on Windows and the Windows filesystem under WSL.
+  # /mnt/c is the Windows system drive under WSL.
   def test_drive_letter_roots_skip_the_system_drive
-    roots = @install.send(:drive_letter_roots)
-
-    refute_includes roots, 'C:/'
-    refute_includes roots, '/mnt/c'
+    refute_includes @install.send(:drive_letter_roots), '/mnt/c'
   end
 
   def test_drive_letter_volume_paths_finds_volume_by_marker
@@ -41,6 +38,15 @@ class InstallTest < Minitest::Test
 
   def test_drive_letter_volume_paths_ignores_drives_without_marker
     Dir.mktmpdir do |dir|
+      @install.stub(:drive_letter_roots, [dir]) do
+        assert_empty @install.send(:drive_letter_volume_paths)
+      end
+    end
+  end
+
+  # RP2350 and other UF2 bootloaders expose INFO_UF2.TXT as well.
+  def test_drive_letter_volume_paths_ignores_other_uf2_bootloaders
+    with_bootsel_volume(board_id: 'RP2350') do |dir|
       @install.stub(:drive_letter_roots, [dir]) do
         assert_empty @install.send(:drive_letter_volume_paths)
       end

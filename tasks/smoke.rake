@@ -19,14 +19,16 @@
 require 'open3'
 
 module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; splitting hurts readability
-  SMOKE_BOARDS = %w[pico picow pico2 esp32 esp32c6].freeze
+  SMOKE_BOARDS = %w[pico picow pico2 esp32 esp32c6 m5stickc_plus].freeze
 
   # In-repo CLI so the smoke test exercises the working tree. Override with
   # PRREMOTE=... to test an installed gem instead.
   BIN = ENV.fetch('PRREMOTE', 'ruby -Ilib bin/prremote')
 
   # Board → examples/ subdirectory.
-  EXAMPLE_DIR = { 'esp32' => 'm5go', 'esp32c6' => 'xiao_c6' }.freeze
+  # m5stickc_plus runs the esp32 runtime (install -b m5stickc_plus records the
+  # board name) but has its own examples and checklist.
+  EXAMPLE_DIR = { 'esp32' => 'm5go', 'esp32c6' => 'xiao_c6', 'm5stickc_plus' => 'm5stickc_plus' }.freeze
 
   module_function
 
@@ -103,6 +105,7 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
     when 'picow'         then picow_steps(board)
     when 'esp32'         then esp32_steps(board)
     when 'esp32c6'       then esp32c6_steps(board)
+    when 'm5stickc_plus' then m5stickc_plus_steps(board)
     end
   end
 
@@ -130,8 +133,22 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
     ]
   end
 
+  def m5stickc_plus_steps(board)
+    dir = "examples/#{example_dir(board)}"
+    common_steps + wifi_steps(board) + [
+      auto('version reports board=m5stickc_plus', 'version', /board=m5stickc_plus\b/),
+      eyeball('RTC (BM8563) prints a ticking date/time without the "not set yet" line', "run #{dir}/rtc.rb"),
+      manual("LED/PWM/buzzer: #{dir}/led.rb blinks, pwm.rb breathes the red LED, buzzer.rb plays a scale"),
+      manual("IR: #{dir}/ir_send.rb flashes the IR LED (visible through a phone camera)"),
+      manual("LCD: #{dir}/lcd_hello.rb shows correct colors (red is red), no offset/cropping"),
+      manual("LCD: #{dir}/lcd_rotations.rb shows all four border lines in every rotation, no edge noise"),
+      manual("Buttons/IMU: #{dir}/buttons.rb reports A/B, imu.rb reads ~1.0g on Z at rest"),
+      manual("Jumpers: #{dir}/pin_check.rb (2 rounds) and spi_loopback.rb (G32<->G33) print OK")
+    ]
+  end
+
   def run_cmd(cmd)
-    full = [BIN, global_opts, cmd].reject(&:empty?).join(' ')
+    full = [BIN, cmd, global_opts].reject(&:empty?).join(' ')
     out, = Open3.capture2e(full)
     [full, out]
   end
@@ -142,7 +159,7 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
   # the process group: run.rb catches Interrupt, sends the device \x03 to stop
   # it, and exits. Returns whatever was printed, minus the interrupt backtrace.
   def run_cmd_timed(cmd, seconds)
-    full = [BIN, global_opts, cmd].reject(&:empty?).join(' ')
+    full = [BIN, cmd, global_opts].reject(&:empty?).join(' ')
     buf = +''
     Open3.popen2e(full, pgroup: true) do |_stdin, out, wait_thr|
       reader = Thread.new { out.each_line { |line| buf << line } }

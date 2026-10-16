@@ -201,6 +201,7 @@ set_target_properties(runtime PROPERTIES
 target_compile_definitions(runtime PRIVATE
   MRBC_SCHEDULER_EXIT=1
   RUNTIME_VERSION="${RUNTIME_VERSION}"
+  PRR_DEFAULT_BOARD="${RUNTIME_BOARD}"
   ${BOARD_DEFINES}
 )
 add_dependencies(runtime autogen mrblib ${BOARD_DEPS})

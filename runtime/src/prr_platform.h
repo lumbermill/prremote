@@ -60,6 +60,18 @@ void prr_reset_monitor_stop(void);
 
 void prr_sleep_ms(uint32_t ms);
 
+/* ── board identity ──────────────────────────────────────────────────────── */
+/* One runtime image can serve several boards (the esp32 image runs on both
+ * the M5GO and the M5StickC PLUS), so the host records which board it
+ * installed to and the runtime reports it in the READY banner, letting the
+ * host pick board-specific Ruby libraries. PRR_BOARD_NAME_MAX includes NUL. */
+#define PRR_BOARD_NAME_MAX 32
+/* Recorded board name, or the build's default (PRR_DEFAULT_BOARD). */
+const char *prr_board_get(void);
+/* Records `name` ("" clears back to the default). Returns false if the name
+ * is not accepted or the platform cannot store one. */
+bool prr_board_set(const char *name);
+
 /* Protocol entry point implemented by runtime.c; called from platform main
  * after prr_console_init(). */
 int prr_main(void);
