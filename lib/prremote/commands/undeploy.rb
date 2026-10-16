@@ -9,7 +9,7 @@ module Prremote
       end
 
       def call
-        serial = SerialPort.open(@port, @baud)
+        serial = Serial.new(@port, @baud)
         serial.write("\x03")
 
         # \x03 may trigger a watchdog reboot (if a script was running).
@@ -51,7 +51,7 @@ module Prremote
               candidate = Detector.find_device || @port
               if candidate && File.exist?(candidate)
                 begin
-                  serial = SerialPort.open(candidate, @baud)
+                  serial = Serial.new(candidate, @baud)
                   @port  = candidate
                   break
                 rescue StandardError

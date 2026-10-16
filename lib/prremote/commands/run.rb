@@ -39,7 +39,7 @@ module Prremote
       end
 
       def run_on_device(mrb_data)
-        serial = SerialPort.open(@port, @baud)
+        serial = Serial.new(@port, @baud)
         wait_for_ready(serial)
 
         write_chunked(serial, mrb_data)

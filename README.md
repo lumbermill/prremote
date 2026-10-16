@@ -190,20 +190,14 @@ prremote runs on both, but each needs a little setup that macOS and Linux do not
 
 ### Windows
 
-Ruby 3.4 or later is required; [RubyInstaller](https://rubyinstaller.org/) is the usual way to get it. Boards appear as `COM3`, `COM4` and so on rather than as `/dev/tty*`, and are matched by USB vendor id the same way they are elsewhere, so auto-detection picks the board over any virtual COM ports the machine happens to have:
+Ruby 3.4 or later is required; [RubyInstaller](https://rubyinstaller.org/) is the usual way to get it. Serial ports are discovered through the registry, so boards appear as `COM3`, `COM4` and so on rather than as `/dev/tty*`:
 
 ```powershell
 prremote list
-# COM5  (unknown)
-# COM7  (Pico (prremote/R2P2))
-
-prremote run app.rb              # picks COM7
-prremote run app.rb --port COM7  # or name it
+prremote run app.rb --port COM4
 ```
 
 For Pico boards, `install` copies the UF2 to whichever drive letter the BOOTSEL volume lands on — there is nothing to mount or configure.
-
-Flashing an ESP32 board from Windows is not supported yet: the bootloader reset in `EspFlasher` drives DTR/RTS through POSIX ioctls. Use `install` from macOS, Linux or WSL for those.
 
 ### WSL
 
