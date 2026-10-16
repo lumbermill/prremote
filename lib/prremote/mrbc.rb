@@ -1,4 +1,5 @@
 require 'open3'
+require 'tempfile'
 
 module Prremote
   # mrbc lookup order:
@@ -41,6 +42,18 @@ module Prremote
       end
 
       @version_ok = true
+    end
+
+    # Compiles the given .rb files (in order) into one .mrb; returns its bytes.
+    def self.compile(*rb_paths)
+      check_version!
+      tmp = Tempfile.new(['prremote', '.mrb'])
+      out, status = Open3.capture2e(bin, '-o', tmp.path, *rb_paths)
+      raise "mrbc failed:\n#{out.chomp}" unless status.success?
+
+      File.binread(tmp.path)
+    ensure
+      tmp&.close!
     end
 
     private_class_method def self.path_candidates

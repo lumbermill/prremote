@@ -2,7 +2,7 @@
 
 > ⚠️ This project is in early development. APIs and commands are subject to change.
 
-**prremote** is a command-line tool for deploying and running Ruby scripts on a Raspberry Pi Pico W or ESP32 (e.g. M5Stack) over USB serial. It ships a minimal [mruby/c](https://github.com/mrubyc/mrubyc) runtime firmware and lets you compile and send `.rb` files from your Mac or Linux machine directly to the device.
+**prremote** is a command-line tool for deploying and running Ruby scripts on a Raspberry Pi Pico W or ESP32 (e.g. M5Stack) over USB serial. It ships a minimal [mruby/c](https://github.com/mrubyc/mrubyc) runtime firmware and lets you compile and send `.rb` files from your Mac, Linux or WSL2 machine directly to the device.
 
 Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote.html) for MicroPython.
 
@@ -17,11 +17,13 @@ Inspired by [mpremote](https://docs.micropython.org/en/latest/reference/mpremote
 ## Requirements
 
 - Ruby 3.4 or later
+- Supported hosts: macOS, Linux, and WSL2 — see [WSL](#wsl) for the extra setup WSL needs
 - Supported boards:
   - [Raspberry Pi Pico W](https://www.raspberrypi.com/products/raspberry-pi-pico-w/) / [Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
-  - [Raspberry Pi Pico 2](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) (RP2350)
-  - ESP32 (classic) — e.g. [M5GO / M5Stack Core gen1](https://docs.m5stack.com/en/core/m5go), generic [ESP32](https://www.espressif.com/en/products/socs/esp32) dev boards
+  - [Raspberry Pi Pico 2](https://www.raspberrypi.com/products/raspberry-pi-pico-2/) (RP2350) — `install` not yet verified on real hardware; reports welcome
+  - ESP32 (classic) — e.g. [M5GO / M5Stack Core gen1](https://docs.m5stack.com/en/core/m5go), [M5StickC PLUS](https://docs.m5stack.com/en/core/m5stickc_plus), generic [ESP32](https://www.espressif.com/en/products/socs/esp32) dev boards
   - ESP32-C6 (RISC-V) — e.g. [Seeed Studio XIAO ESP32C6](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/)
+  - Per-board feature status (GPIO / ADC / PWM / I2C / SPI / WiFi / sockets / LCD / IR): [docs/SUPPORT.md](docs/SUPPORT.md)
 - `mrbc` (mruby 4.x) for `run`, `deploy`, and `eval`
   - macOS: `brew install mruby`
   - Linux: build from source — [github.com/mruby/mruby/releases](https://github.com/mruby/mruby/releases)
@@ -66,6 +68,7 @@ prremote install -b picow                 # Pico W
 prremote install -b pico                  # Pico (no wireless)
 prremote install -b pico2                 # Pico 2 (RP2350)
 prremote install -b esp32                 # ESP32 (M5GO / M5Stack Core, etc.)
+prremote install -b m5stickc_plus         # M5StickC PLUS (esp32 runtime + board library)
 prremote install -b esp32c6               # ESP32-C6 (e.g. XIAO ESP32C6)
 prremote install -b picow --version 0.1.1 # specify a runtime version
 ```
@@ -78,9 +81,11 @@ Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, releas
 
 ESP32 (classic): no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5).
 
-ESP32-C6: flashing is delegated to [esptool](https://docs.espressif.com/projects/esptool/en/latest/), because the C6 boot ROM rejects the direct write the classic ESP32 accepts. Install it first (`brew install esptool`, or `pip3 install esptool`), and put the board into bootloader mode when prompted — on the XIAO ESP32C6, hold **BOOT**, press **RST**, then release both.
+ESP32-C6: flashing is delegated to [esptool](https://docs.espressif.com/projects/esptool/en/latest/), because the C6 boot ROM rejects the direct write the classic ESP32 accepts. Install it first (`brew install esptool`, or `pip3 install esptool`). The C6's USB Serial/JTAG port is reset into the boot ROM over USB, so no buttons are needed; only if that fails does prremote fall back to waiting for manual bootloader mode — on the XIAO ESP32C6, hold **BOOT**, press **RST**, then release both.
 
 Reflashing the runtime does not erase a deployed script on either chip.
+
+Board names such as `m5stickc_plus` install the runtime image of their chip (esp32) and record the board name on the device, which the runtime then reports (`prremote version` shows `board=m5stickc_plus`). That name decides which [board libraries](#board-libraries) scripts can use; installing with the plain chip name (`-b esp32`) clears it.
 
 ---
 
@@ -178,10 +183,45 @@ Show the gem version, mrbc version, and the connected device's runtime version.
 
 ```bash
 prremote version
-# prremote: 0.3.2
-# runtime:  0.3.2 (/dev/tty.usbmodem101)
+# prremote: 0.4.1
+# runtime:  0.4.1 board=picow (/dev/tty.usbmodem101)
 # mrbc: mruby 4.0.0 (2026-04-20) (/opt/homebrew/bin/mrbc)
 ```
+
+---
+
+## WSL
+
+prremote runs under WSL2, but two things are not automatic there.
+
+**USB serial devices are not forwarded.** WSL2 does not pass USB through to the guest, so a board Windows sees perfectly well has no `/dev/ttyACM*` on the Linux side. Install [usbipd-win](https://github.com/dorssel/usbipd-win) on the Windows side and attach the board:
+
+```powershell
+winget install --exact dorssel.usbipd-win
+usbipd list                              # note the BUSID of your board
+usbipd bind --busid <BUSID>              # once, as Administrator
+usbipd attach --wsl --busid <BUSID>      # after every reconnect
+```
+
+Then, in WSL:
+
+```bash
+prremote list        # /dev/ttyACM0 should now show up
+```
+
+If the port is there but cannot be opened, add yourself to the `dialout` group (`sudo usermod -aG dialout $USER`) and restart WSL with `wsl --shutdown`.
+
+**Removable drives are not mounted.** For Pico boards, the BOOTSEL volume arrives as a Windows drive letter, which WSL does not mount on its own. Mount it before running `install`:
+
+```bash
+sudo mkdir -p /mnt/d
+sudo mount -t drvfs D: /mnt/d    # use the drive letter RPI-RP2 was assigned
+prremote install -b picow
+```
+
+`install` scans `/mnt/d` through `/mnt/z` for the BOOTSEL volume, so the mount point only has to match the drive letter.
+
+ESP32 boards need neither step in WSL beyond the usbipd attach, since they are flashed over the serial port.
 
 ---
 
@@ -214,9 +254,28 @@ prremote undeploy         # remove from flash
 
 ---
 
+## Board libraries
+
+Some boards come with a Ruby library for their built-in hardware. You don't load it yourself: when a script mentions one of its classes, `run` / `deploy` / `watch` / `eval` compile the library in ahead of your files (it prints `Adding board library: ...`). Scripts that don't mention it pay nothing on the device.
+
+| Board (`install -b`) | Classes | Covers |
+|---|---|---|
+| `m5stickc_plus` | `M5StickCPlus`, `BM8563` | AXP192 power-on, LCD preset per rotation, buttons A/B, red LED, buzzer, IR LED, BM8563 RTC (as `Time`) |
+
+```ruby
+stick = M5StickCPlus.new            # powers the LCD
+lcd = stick.lcd(rotation: 1)        # pins / size / RAM offset / color order preset
+lcd.text(4, 4, stick.rtc.time.to_s, scale: 1)
+stick.led.on if stick.button_a.pressed?
+```
+
+A board library is refused if the device reports a different board (e.g. `M5StickCPlus` on an esp32c6). Chip drivers such as `BM8563` work on any board. The library sources live in [lib/prremote/boards/](lib/prremote/boards/) and double as the reference for driving the hardware directly.
+
+---
+
 ## How It Works
 
-prremote flashes a minimal C firmware (built on mruby/c) onto the Pico W. The firmware:
+prremote flashes a minimal C firmware (built on mruby/c) onto the board. The firmware:
 
 1. Waits for a USB serial connection and sends `READY prremote-runtime/VERSION`
 2. Receives a command from the host:
@@ -224,7 +283,7 @@ prremote flashes a minimal C firmware (built on mruby/c) onto the Pico W. The fi
    - `DPLY` + `.mrb` bytecode → save to flash and confirm with `DEPLOYED` (`deploy`)
 3. Waits for the next command
 
-Scripts saved via `deploy` are stored in flash and run automatically on every boot. GPIO / ADC / PWM / I2C / SPI bindings are available on all boards; a `WiFi` module on boards with a radio (Pico W and ESP32); an `LCD` class (ILI9342C) on ESP32 / M5Stack.
+Scripts saved via `deploy` are stored in flash and run automatically on every boot. GPIO / ADC / PWM / I2C / SPI bindings are available on all boards; `WiFi`, `Time` (NTP) and `TCPSocket` on boards with a radio (Pico W, ESP32, ESP32-C6), plus `UDPSocket` on ESP32 / ESP32-C6; an `LCD` class (ILI9342C / ILI9341 / ST7789) on ESP32 / ESP32-C6; and an `IR` transmitter class on classic ESP32 (e.g. the M5StickC PLUS IR LED). See [docs/SUPPORT.md](docs/SUPPORT.md) for the full board × feature matrix and [examples/](examples/) for copy-paste samples per board.
 
 ---
 

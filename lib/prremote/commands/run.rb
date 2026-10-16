@@ -1,6 +1,3 @@
-require 'open3'
-require 'tempfile'
-require_relative '../mrbc'
 require_relative 'serial_helpers'
 
 module Prremote
@@ -17,31 +14,20 @@ module Prremote
         rb_paths.each { |f| raise "File not found: #{f}" unless File.exist?(f) }
 
         warn "Compiling #{rb_paths.map { |f| File.basename(f) }.join(', ')}..."
-        mrb_data = compile(*rb_paths)
+        mrb_data = compile_with_boards(rb_paths)
 
-        warn 'Running...'
-        run_on_device(mrb_data)
+        run_on_device(mrb_data, rb_paths)
       rescue Interrupt
         warn ''
       end
 
       private
 
-      def compile(*rb_paths)
-        Mrbc.check_version!
-        tmp = Tempfile.new(['prremote', '.mrb'])
-        out, status = Open3.capture2e(Mrbc.bin, '-o', tmp.path, *rb_paths)
-        raise "mrbc failed:\n#{out.chomp}" unless status.success?
-
-        File.binread(tmp.path)
-      ensure
-        tmp&.close!
-      end
-
-      def run_on_device(mrb_data)
+      def run_on_device(mrb_data, rb_paths)
         serial = Serial.new(@port, @baud)
-        wait_for_ready(serial)
+        check_board!(wait_for_ready(serial), rb_paths)
 
+        warn 'Running...'
         write_chunked(serial, mrb_data)
         debug "sent #{mrb_data.bytesize} bytes (first 4: #{mrb_data[0, 4].inspect})"
 

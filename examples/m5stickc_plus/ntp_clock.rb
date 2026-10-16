@@ -2,9 +2,9 @@
 # Displays current time (JST = UTC+9) on the built-in LCD, updated every
 # second. Syncs once per hour via SNTP.
 #
-# Wiring: none — WiFi and LCD are built-in. Like lcd_hello.rb, the AXP192
-# PMIC (I2C 0x34) needs LDO2/LDO3 enabled before the panel shows anything.
-# Set SSID and PASSWORD before deploying.
+# Wiring: none — WiFi and LCD are built-in (M5StickCPlus: see lcd_hello.rb).
+# Set SSID and PASSWORD before deploying. For a clock that keeps time
+# without WiFi, see rtc.rb / ruby.rb (built-in RTC).
 
 SSID     = "MySSID"
 PASSWORD = "MyPassword"
@@ -12,16 +12,8 @@ PASSWORD = "MyPassword"
 SYNC_INTERVAL = 3600
 NTP_SERVER    = "ntp.nict.jp"
 
-i2c = I2C.new(sda_pin: 21, scl_pin: 22)
-i2c.write(0x34, 0x28, 0xCC)                 # LDO2/LDO3 voltage = 3.0V
-cur = i2c.read(0x34, 1, 0x12).getbyte(0)
-i2c.write(0x34, 0x12, cur | 0x4D)           # enable Ext, LDO2, LDO3, DCDC1
-
-# madctl: 0x00 — see lcd_hello.rb; this ST7789 wants plain RGB, not the
-# BGR the default table assumes for the ILI9342C (M5GO).
-lcd = LCD.new(sck_pin: 13, mosi_pin: 15, miso_pin: -1, cs_pin: 5, dc_pin: 23,
-              rst_pin: 18, bl_pin: -1, invert: true, madctl: 0x00,
-              width: 135, height: 240, offset_x: 52, offset_y: 40)
+stick = M5StickCPlus.new
+lcd = stick.lcd
 lcd.fill(LCD::BLACK)
 lcd.text(4, 4, "Connecting...", scale: 1)
 

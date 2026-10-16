@@ -26,8 +26,8 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
   BIN = ENV.fetch('PRREMOTE', 'ruby -Ilib bin/prremote')
 
   # Board → examples/ subdirectory.
-  # m5stickc_plus runs the esp32 runtime (install -b esp32) but has its own
-  # examples and checklist.
+  # m5stickc_plus runs the esp32 runtime (install -b m5stickc_plus records the
+  # board name) but has its own examples and checklist.
   EXAMPLE_DIR = { 'esp32' => 'm5go', 'esp32c6' => 'xiao_c6', 'm5stickc_plus' => 'm5stickc_plus' }.freeze
 
   module_function
@@ -136,10 +136,12 @@ module Smoke # rubocop:disable Metrics/ModuleLength -- cohesive task helper; spl
   def m5stickc_plus_steps(board)
     dir = "examples/#{example_dir(board)}"
     common_steps + wifi_steps(board) + [
-      eyeball('RTC (BM8563) prints a ticking date/time without a VL warning', "run #{dir}/rtc.rb"),
+      auto('version reports board=m5stickc_plus', 'version', /board=m5stickc_plus\b/),
+      eyeball('RTC (BM8563) prints a ticking date/time without the "not set yet" line', "run #{dir}/rtc.rb"),
       manual("LED/PWM/buzzer: #{dir}/led.rb blinks, pwm.rb breathes the red LED, buzzer.rb plays a scale"),
       manual("IR: #{dir}/ir_send.rb flashes the IR LED (visible through a phone camera)"),
       manual("LCD: #{dir}/lcd_hello.rb shows correct colors (red is red), no offset/cropping"),
+      manual("LCD: #{dir}/lcd_rotations.rb shows all four border lines in every rotation, no edge noise"),
       manual("Buttons/IMU: #{dir}/buttons.rb reports A/B, imu.rb reads ~1.0g on Z at rest"),
       manual("Jumpers: #{dir}/pin_check.rb (2 rounds) and spi_loopback.rb (G32<->G33) print OK")
     ]
