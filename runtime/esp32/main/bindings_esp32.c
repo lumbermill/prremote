@@ -318,6 +318,12 @@ static void c_i2c_init(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "i2c init failed");
     return;
   }
+  /* A device left mid-transfer (e.g. by a reset during a read) survives the
+   * board's own reboot and keeps SDA low. i2c_master_bus_reset runs the
+   * I2C bus-clear sequence (up to 9 SCL pulses, then STOP). */
+  if (gpio_get_level(sda) == 0) {
+    i2c_master_bus_reset(s_i2c_bus[unit_num]);
+  }
   s_i2c_freq[unit_num]        = freq;
   s_i2c_pending_len[unit_num] = 0;
   SET_INT_RETURN(unit_num);
@@ -382,6 +388,23 @@ static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
   if (err != ESP_OK) { SET_NIL_RETURN(); return; }
   mrbc_value s = mrbc_string_new(vm, buf, len);
   SET_RETURN(s);
+}
+
+/* _i2c_probe(unit_num, addr[, timeout_ms]) → true if the address ACKs.
+ * i2c_master_probe sends the address with a write bit and no data, so
+ * write-only parts such as ST7032 LCDs are never asked to drive the bus. */
+static void c_i2c_probe(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int     unit_num = GET_INT_ARG(1) ? 1 : 0;
+  uint8_t addr     = (uint8_t)GET_INT_ARG(2);
+  if (s_i2c_bus[unit_num] == NULL) { SET_FALSE_RETURN(); return; }
+
+  esp_err_t err = i2c_master_probe(s_i2c_bus[unit_num], addr,
+                                   i2c_timeout_ms(v, argc, 3));
+  /* A timeout means the bus is stuck rather than the address being empty;
+   * clear it so the rest of the scan can still run. */
+  if (err == ESP_ERR_TIMEOUT) i2c_master_bus_reset(s_i2c_bus[unit_num]);
+  SET_BOOL_RETURN(err == ESP_OK);
 }
 
 /* ------------------------------------------------------------------ */
@@ -661,6 +684,7 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_i2c_init",         c_i2c_init);
   mrbc_define_method(0, mrbc_class_object, "_i2c_write",        c_i2c_write);
   mrbc_define_method(0, mrbc_class_object, "_i2c_read",         c_i2c_read);
+  mrbc_define_method(0, mrbc_class_object, "_i2c_probe",        c_i2c_probe);
   mrbc_define_method(0, mrbc_class_object, "_spi_init",         c_spi_init);
   mrbc_define_method(0, mrbc_class_object, "_spi_write",        c_spi_write);
   mrbc_define_method(0, mrbc_class_object, "_spi_read",         c_spi_read);

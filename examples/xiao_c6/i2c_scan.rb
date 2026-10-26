@@ -2,8 +2,9 @@
 # Scan the I2C bus on XIAO's dedicated I2C pins, printing progress.
 # Wiring: sensor SDA → D4 (GPIO 22), SCL → D5 (GPIO 23).
 #
-# The block runs after each probe. timeout: caps the wait per address
-# (default 500 ms); a healthy bus never hits it because absent devices NACK.
+# Each address gets an address-only write (safe for write-only LCDs); the
+# block runs after each probe. timeout: caps the wait per address (default
+# 500 ms); a healthy bus never hits it because absent devices NACK.
 
 i2c = I2C.new(sda_pin: 22, scl_pin: 23)
 found = i2c.scan(timeout: 20) do |addr, ok|

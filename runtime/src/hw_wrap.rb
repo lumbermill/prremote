@@ -192,15 +192,16 @@ class I2C
     _i2c_read(@unit_num, addr, len, @timeout)
   end
 
-  # scan(timeout: ms) → Array of 7-bit addresses (0x08..0x77) that responded
-  # With a block, yields (addr, found) after each probe — handy for progress.
-  # An absent device NACKs immediately; only a broken bus (wrong pins, no
-  # pull-ups, a line held low) waits out the timeout at every address.
+  # scan(timeout: ms) → Array of 7-bit addresses (0x08..0x77) that ACK
+  # Probes with an address-only write (no data, like i2cdetect), so
+  # write-only parts such as ST7032 LCDs don't jam the bus the way a read
+  # probe does. With a block, yields (addr, found) after each probe.
+  # I2C.new already frees a bus left stuck by an interrupted transfer.
   def scan(timeout: @timeout)
     found = []
     addr = 0x08
     while addr <= 0x77
-      ok = !_i2c_read(@unit_num, addr, 1, timeout).nil?
+      ok = _i2c_probe(@unit_num, addr, timeout)
       found << addr if ok
       yield addr, ok if block_given?
       addr += 1

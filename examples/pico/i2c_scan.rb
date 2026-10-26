@@ -2,9 +2,10 @@
 # Scan the I2C bus and print progress while probing.
 # Wiring: sensor SDA → GP4, SCL → GP5 (plus 3V3 and GND).
 #
-# An absent address NACKs at once, so a healthy bus scans in well under a
-# second. If every line prints "timeout", check the pins and pull-ups.
-# timeout: caps the wait per address (default 500 ms → up to ~56 s total).
+# Each address gets an address-only write, so write-only parts such as
+# ST7032 LCDs (0x3E) are safe to scan. An absent address NACKs at once and a
+# healthy bus scans in a few ms. If it takes seconds, check pins and pull-ups:
+# timeout: caps the wait per address (default 500 ms).
 
 i2c = I2C.new(unit: :I2C0, sda_pin: 4, scl_pin: 5)
 

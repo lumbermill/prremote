@@ -5,8 +5,8 @@
 #   0x68 = MPU6886 or MPU9250 (IMU; model depends on the board revision)
 #   0x10 = BMM150 magnetometer (older revisions only)
 #
-# The block runs after each probe, so progress shows while scanning.
-# timeout: caps the wait per address (default 500 ms → up to ~56 s total).
+# Each address gets an address-only write (safe for write-only LCDs); the
+# block runs after each probe. timeout: caps the wait per address (default 500 ms).
 i2c = I2C.new(sda_pin: 21, scl_pin: 22)
 found = i2c.scan(timeout: 20) do |addr, ok|
   puts "  0x#{addr.to_s(16)} found" if ok

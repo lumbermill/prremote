@@ -228,20 +228,135 @@ static void c_pwm_set_duty_u16(mrbc_vm *vm, mrbc_value v[], int argc)
 
 static i2c_inst_t *i2c_unit(int n) { return n == 0 ? i2c0 : i2c1; }
 
+/* Pins and bit time per unit, kept for the bit-banged probe / bus clear. */
+static int      s_i2c_sda[2]     = { -1, -1 };
+static int      s_i2c_scl[2]     = { -1, -1 };
+static uint32_t s_i2c_half_us[2] = { 5, 5 };
+static uint32_t s_i2c_freq[2]    = { 100000, 100000 };
+
+/* Open-drain emulation on SIO pins: the output latch stays 0 (gpio_init),
+ * so "low" enables the driver and "release" lets the pull-up take over.
+ * The lines are never driven high. */
+static inline void od_low(uint pin)     { gpio_set_dir(pin, GPIO_OUT); }
+static inline void od_release(uint pin) { gpio_set_dir(pin, GPIO_IN); }
+
+static void od_take(uint sda, uint scl)
+{
+  gpio_init(sda);
+  gpio_init(scl);
+  gpio_pull_up(sda);
+  gpio_pull_up(scl);
+}
+
+static void i2c_give_back(uint sda, uint scl)
+{
+  gpio_set_function(sda, GPIO_FUNC_I2C);
+  gpio_set_function(scl, GPIO_FUNC_I2C);
+}
+
+/* Releases SCL and waits out clock stretching. */
+static bool scl_release_wait(uint scl, uint32_t timeout_us)
+{
+  od_release(scl);
+  absolute_time_t deadline = make_timeout_time_us(timeout_us);
+  while (!gpio_get(scl)) {
+    if (time_reached(deadline)) return false;
+  }
+  return true;
+}
+
+static void od_stop(uint sda, uint scl, uint32_t half)
+{
+  od_low(scl);     busy_wait_us(half);
+  od_low(sda);     busy_wait_us(half);
+  od_release(scl); busy_wait_us(half);
+  od_release(sda); busy_wait_us(half);
+}
+
+/* Bus clear (I2C spec 3.1.16): a device interrupted mid-transfer can hold
+ * SDA low indefinitely. Up to 9 SCL pulses let it finish its byte, then a
+ * STOP resets every device's state machine. Pins must be on SIO.
+ * Returns true when both lines end up high. */
+static bool i2c_bus_clear(uint sda, uint scl, uint32_t half)
+{
+  od_release(sda);
+  od_release(scl);
+  busy_wait_us(half);
+  for (int i = 0; i < 9 && !gpio_get(sda); i++) {
+    od_low(scl);     busy_wait_us(half);
+    od_release(scl); busy_wait_us(half);
+  }
+  od_stop(sda, scl, half);
+  return gpio_get(sda) && gpio_get(scl);
+}
+
+/* Address-only write ("quick write", as i2cdetect does): START, addr+W,
+ * sample ACK, STOP — no data byte, so write-only parts such as ST7032 LCDs
+ * are never asked to drive the bus. The RP2040/RP2350 I2C block cannot
+ * send a zero-length write, hence the bit-banging.
+ * Returns 1 on ACK, 0 on NACK, -1 if the bus is stuck. */
+static int i2c_quick_write(uint sda, uint scl, uint8_t addr, uint32_t half,
+                           uint32_t timeout_us)
+{
+  od_release(sda);
+  od_release(scl);
+  busy_wait_us(half);
+  if (!gpio_get(sda) || !gpio_get(scl)) {
+    if (!i2c_bus_clear(sda, scl, half)) return -1;
+  }
+
+  od_low(sda); busy_wait_us(half);            /* START */
+  od_low(scl); busy_wait_us(half);
+
+  uint8_t byte = (uint8_t)(addr << 1);        /* R/W bit 0 = write */
+  for (int bit = 7; bit >= 0; bit--) {
+    if (byte & (1u << bit)) od_release(sda); else od_low(sda);
+    busy_wait_us(half);
+    if (!scl_release_wait(scl, timeout_us)) goto stuck;
+    busy_wait_us(half);
+    od_low(scl);
+  }
+
+  od_release(sda);                            /* ACK clock */
+  busy_wait_us(half);
+  if (!scl_release_wait(scl, timeout_us)) goto stuck;
+  busy_wait_us(half / 2);
+  bool ack = !gpio_get(sda);
+  busy_wait_us(half - half / 2);
+
+  od_stop(sda, scl, half);
+  return ack ? 1 : 0;
+
+stuck:
+  i2c_bus_clear(sda, scl, half);
+  return -1;
+}
+
 static void c_i2c_init(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int      unit_num = GET_INT_ARG(1);
+  int      unit_num = GET_INT_ARG(1) ? 1 : 0;
   uint32_t freq     = (uint32_t)GET_INT_ARG(2);
   int      sda      = GET_INT_ARG(3);
   int      scl      = GET_INT_ARG(4);
 
-  i2c_init(i2c_unit(unit_num), freq);
   if (sda < 0) sda = PICO_DEFAULT_I2C_SDA_PIN;
   if (scl < 0) scl = PICO_DEFAULT_I2C_SCL_PIN;
-  gpio_set_function(sda, GPIO_FUNC_I2C);
-  gpio_set_function(scl, GPIO_FUNC_I2C);
-  gpio_pull_up(sda);
-  gpio_pull_up(scl);
+  uint32_t half = freq > 0 ? 500000u / freq : 5;
+  if (half == 0) half = 1;
+
+  /* A device left mid-transfer (e.g. by a reset during a read) survives the
+   * board's own reboot and keeps SDA low; free the bus before handing the
+   * pins to the I2C block. */
+  od_take(sda, scl);
+  if (!gpio_get(sda)) i2c_bus_clear(sda, scl, half);
+
+  i2c_init(i2c_unit(unit_num), freq);
+  i2c_give_back(sda, scl);
+
+  s_i2c_sda[unit_num]     = sda;
+  s_i2c_scl[unit_num]     = scl;
+  s_i2c_half_us[unit_num] = half;
+  s_i2c_freq[unit_num]    = freq;
   SET_INT_RETURN(unit_num);
 }
 
@@ -291,6 +406,26 @@ static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
   if (ret <= 0) { SET_NIL_RETURN(); return; }
   mrbc_value s = mrbc_string_new(vm, buf, ret);
   SET_RETURN(s);
+}
+
+/* _i2c_probe(unit_num, addr[, timeout_ms]) → true if the address ACKs */
+static void c_i2c_probe(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int     unit_num = GET_INT_ARG(1) ? 1 : 0;
+  uint8_t addr     = (uint8_t)GET_INT_ARG(2);
+  int     sda      = s_i2c_sda[unit_num];
+  int     scl      = s_i2c_scl[unit_num];
+  if (sda < 0 || scl < 0) { SET_FALSE_RETURN(); return; }
+
+  od_take(sda, scl);
+  int r = i2c_quick_write(sda, scl, addr, s_i2c_half_us[unit_num],
+                          i2c_timeout_us(v, argc, 3));
+  /* The I2C block keeps watching the pads while they are on SIO, so the
+   * bit-banged START/STOP leaves it unable to run the next transfer
+   * (read → nil, write → -2). Resetting it is cheap and restores it. */
+  i2c_init(i2c_unit(unit_num), s_i2c_freq[unit_num]);
+  i2c_give_back(sda, scl);
+  SET_BOOL_RETURN(r == 1);
 }
 
 /* ------------------------------------------------------------------ */
@@ -409,6 +544,7 @@ void runtime_define_methods(void)
   mrbc_define_method(0, mrbc_class_object, "_i2c_init",         c_i2c_init);
   mrbc_define_method(0, mrbc_class_object, "_i2c_write",        c_i2c_write);
   mrbc_define_method(0, mrbc_class_object, "_i2c_read",         c_i2c_read);
+  mrbc_define_method(0, mrbc_class_object, "_i2c_probe",        c_i2c_probe);
   mrbc_define_method(0, mrbc_class_object, "_spi_init",         c_spi_init);
   mrbc_define_method(0, mrbc_class_object, "_spi_write",        c_spi_write);
   mrbc_define_method(0, mrbc_class_object, "_spi_read",         c_spi_read);
