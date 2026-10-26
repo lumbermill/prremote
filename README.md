@@ -77,7 +77,7 @@ prremote install -b picow --version 0.1.1 # specify a runtime version
 
 The firmware is downloaded from GitHub Releases on first use and cached in `~/.prremote/runtime/`. Subsequent installs use the cache.
 
-Pico boards: put the device into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted. The drive appears as `RPI-RP2` on Pico / Pico W and as `RP2350` on Pico 2.
+Pico boards: if the board is already running the prremote runtime, `install` reboots it into BOOTSEL mode by itself (a 1200 bps touch on its serial port). Otherwise — a fresh board, or one running something else — put it into BOOTSEL mode (hold BOOTSEL, connect USB, release) when prompted. The drive appears as `RPI-RP2` on Pico / Pico W and as `RP2350` on Pico 2.
 
 ESP32 (classic): no button dance and no extra tools needed — the firmware is written over the serial port by prremote's pure-Ruby implementation of the Espressif bootloader protocol (the chip is reset into its boot ROM automatically, and the write is verified with an on-chip MD5).
 

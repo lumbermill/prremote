@@ -44,6 +44,17 @@ module Prremote
         '`usbipd list`, then `usbipd attach --wsl --busid <BUSID>`.'
     end
 
+    def self.find_pico_port
+      new.find_pico_port
+    end
+
+    # A port whose USB vendor is Raspberry Pi — the only kind the 1200 bps
+    # BOOTSEL touch applies to. nil when none (or the vendor can't be read).
+    def find_pico_port
+      label = KNOWN_VENDORS.dig(R2P2_VENDOR_IDS.first, :label)
+      serial_ports.find { |p| port_label(p) == label }
+    end
+
     def find_device
       candidates = serial_ports
       return candidates.first if candidates.size == 1

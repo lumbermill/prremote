@@ -14,6 +14,15 @@ module Prremote
       # The UF2 bootloader exposes this file on the BOOTSEL volume.
       BOOTSEL_MARKER = 'INFO_UF2.TXT'.freeze
 
+      # pico-sdk's stdio_usb reboots into the BOOTSEL boot ROM when the host
+      # sets this baud rate (PICO_STDIO_USB_RESET_MAGIC_BAUD_RATE), so a board
+      # already running the runtime can be flashed without the button.
+      RESET_BAUD = 1200
+
+      # How long to wait for the BOOTSEL drive after the 1200 bps touch before
+      # falling back to the manual instructions.
+      AUTO_BOOTSEL_TIMEOUT = 10
+
       # Boards whose install path has not been run on real hardware yet.
       UNVERIFIED_BOARDS = %w[pico2].freeze
 
@@ -38,14 +47,7 @@ module Prremote
         uf2_path = RuntimeManager.fetch(@version, @board)
 
         warn_unverified
-        puts "Put the #{device_label} into BOOTSEL mode:"
-        puts '  1. Hold the BOOTSEL button'
-        puts '  2. Connect USB (or press RUN while holding BOOTSEL)'
-        puts "  3. Release BOOTSEL — #{volume_name} should appear as a USB drive"
-        puts
-        puts "Waiting for #{volume_name}..."
-
-        volume = wait_for_volume
+        volume = mounted_volume || auto_bootsel || manual_bootsel
         puts "Copying firmware to #{volume}..."
         FileUtils.cp(uf2_path, File.join(volume, File.basename(uf2_path)))
 
@@ -56,6 +58,55 @@ module Prremote
       end
 
       private
+
+      # A board already sitting in BOOTSEL needs no reboot.
+      def mounted_volume
+        volume = volume_paths.find { |p| mounted?(p) }
+        puts "Found #{volume_name} at #{volume}." if volume
+        volume
+      end
+
+      # Reboots a board running the runtime into BOOTSEL with a 1200 bps
+      # touch. nil when there is no Pico port or the drive never shows up
+      # (no runtime on the board, a wedged runtime, or a WSL drive that still
+      # needs mounting), so the caller falls back to the button.
+      def auto_bootsel
+        port = @port || Detector.find_pico_port
+        return nil unless port
+
+        puts "Rebooting #{device_label} on #{port} into BOOTSEL mode..."
+        touch_reset_baud(port)
+        puts "Waiting for #{volume_name}..."
+        wait_for_volume(timeout: AUTO_BOOTSEL_TIMEOUT)
+      rescue RuntimeError
+        puts "#{volume_name} did not appear; falling back to manual BOOTSEL."
+        puts
+        nil
+      end
+
+      # Opening the port at the magic baud rate is the whole trigger. The board
+      # drops off USB right away, so errors while closing are expected.
+      def touch_reset_baud(port)
+        serial = Serial.new(port, RESET_BAUD)
+      rescue RubySerial::Error, SystemCallError => e
+        puts "Could not open #{port} at #{RESET_BAUD} bps: #{e.message}" if @verbose
+      ensure
+        begin
+          serial&.close
+        rescue RubySerial::Error, SystemCallError
+          nil
+        end
+      end
+
+      def manual_bootsel
+        puts "Put the #{device_label} into BOOTSEL mode:"
+        puts '  1. Hold the BOOTSEL button'
+        puts '  2. Connect USB (or press RUN while holding BOOTSEL)'
+        puts "  3. Release BOOTSEL — #{volume_name} should appear as a USB drive"
+        puts
+        puts "Waiting for #{volume_name}..."
+        wait_for_volume
+      end
 
       # No BOOTSEL dance on ESP32: the flasher toggles DTR/RTS to enter the
       # boot ROM by itself, so flashing works over the normal serial port.
@@ -155,10 +206,12 @@ module Prremote
         false
       end
 
+      # The marker, not the directory, is the test: macOS can leave an empty
+      # /Volumes/RPI-RP2 behind after the board reboots off a copy.
       def wait_for_volume(timeout: 60)
         deadline = Time.now + timeout
         loop do
-          path = volume_paths.find { |p| File.directory?(p) }
+          path = volume_paths.find { |p| mounted?(p) }
           return path if path
           raise "Timed out waiting for #{volume_name} volume (#{timeout}s)" if Time.now > deadline
 
