@@ -245,7 +245,19 @@ static void c_i2c_init(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_INT_RETURN(unit_num);
 }
 
-/* _i2c_write(unit_num, addr, data_array, nostop_int) */
+/* Optional trailing timeout argument (ms) shared by _i2c_write/_i2c_read.
+ * Missing or non-positive falls back to I2C_DEFAULT_TIMEOUT_MS. */
+#define I2C_DEFAULT_TIMEOUT_MS 500
+
+static uint32_t i2c_timeout_us(mrbc_value v[], int argc, int idx)
+{
+  if (argc >= idx && v[idx].tt == MRBC_TT_INTEGER && mrbc_integer(v[idx]) > 0) {
+    return (uint32_t)mrbc_integer(v[idx]) * 1000u;
+  }
+  return I2C_DEFAULT_TIMEOUT_MS * 1000u;
+}
+
+/* _i2c_write(unit_num, addr, data_array, nostop_int[, timeout_ms]) */
 static void c_i2c_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int     unit_num = GET_INT_ARG(1);
@@ -260,11 +272,12 @@ static void c_i2c_write(mrbc_vm *vm, mrbc_value v[], int argc)
     for (int i = 0; i < n; i++) buf[i] = (uint8_t)mrbc_integer(ary->data[i]);
   }
 
-  int ret = i2c_write_timeout_us(i2c_unit(unit_num), addr, buf, n, nostop, 500000);
+  int ret = i2c_write_timeout_us(i2c_unit(unit_num), addr, buf, n, nostop,
+                                 i2c_timeout_us(v, argc, 5));
   SET_INT_RETURN(ret);
 }
 
-/* _i2c_read(unit_num, addr, len) → String or nil */
+/* _i2c_read(unit_num, addr, len[, timeout_ms]) → String or nil */
 static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int     unit_num = GET_INT_ARG(1);
@@ -273,7 +286,8 @@ static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
   if (len > 256) len = 256;
 
   uint8_t buf[256];
-  int ret = i2c_read_timeout_us(i2c_unit(unit_num), addr, buf, len, false, 500000);
+  int ret = i2c_read_timeout_us(i2c_unit(unit_num), addr, buf, len, false,
+                                i2c_timeout_us(v, argc, 4));
   if (ret <= 0) { SET_NIL_RETURN(); return; }
   mrbc_value s = mrbc_string_new(vm, buf, ret);
   SET_RETURN(s);

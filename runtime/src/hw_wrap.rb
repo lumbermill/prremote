@@ -163,7 +163,7 @@ end
 
 class I2C
   DEFAULT_FREQUENCY = 100_000
-  DEFAULT_TIMEOUT   = 500
+  DEFAULT_TIMEOUT   = 500 # ms, per transfer
 
   # Accepts 0 / 1, :I2C0 / :I2C1, or the legacy :RP2040_I2C0 / :RP2040_I2C1.
   def self.unit_num(unit)
@@ -172,6 +172,9 @@ class I2C
     (unit == :I2C1 || unit == :RP2040_I2C1) ? 1 : 0
   end
 
+  attr_accessor :timeout
+
+  # timeout: milliseconds each write / read waits before giving up.
   def initialize(unit: 0, frequency: DEFAULT_FREQUENCY, sda_pin: -1, scl_pin: -1, timeout: DEFAULT_TIMEOUT)
     @timeout  = timeout
     @unit_num = _i2c_init(I2C.unit_num(unit), frequency, sda_pin, scl_pin)
@@ -179,23 +182,27 @@ class I2C
 
   # write(addr, byte, byte, ...) → bytes written or -1
   def write(addr, *data)
-    _i2c_write(@unit_num, addr, data, 0)
+    _i2c_write(@unit_num, addr, data, 0, @timeout)
   end
 
   # read(addr, len, *write_data) → String or nil
   # If write_data is given, writes it first with repeated-start then reads.
   def read(addr, len, *write_data)
-    _i2c_write(@unit_num, addr, write_data, 1) unless write_data.empty?
-    _i2c_read(@unit_num, addr, len)
+    _i2c_write(@unit_num, addr, write_data, 1, @timeout) unless write_data.empty?
+    _i2c_read(@unit_num, addr, len, @timeout)
   end
 
-  # scan → Array of 7-bit addresses that responded
-  def scan
+  # scan(timeout: ms) → Array of 7-bit addresses (0x08..0x77) that responded
+  # With a block, yields (addr, found) after each probe — handy for progress.
+  # An absent device NACKs immediately; only a broken bus (wrong pins, no
+  # pull-ups, a line held low) waits out the timeout at every address.
+  def scan(timeout: @timeout)
     found = []
     addr = 0x08
     while addr <= 0x77
-      result = _i2c_read(@unit_num, addr, 1)
-      found << addr unless result.nil?
+      ok = !_i2c_read(@unit_num, addr, 1, timeout).nil?
+      found << addr if ok
+      yield addr, ok if block_given?
       addr += 1
     end
     found

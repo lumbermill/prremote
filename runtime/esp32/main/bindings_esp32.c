@@ -234,7 +234,17 @@ static void c_pwm_set_duty_u16(mrbc_vm *vm, mrbc_value v[], int argc)
 /* I2C bindings — i2c_master driver                                    */
 /* ------------------------------------------------------------------ */
 
-#define I2C_TIMEOUT_MS 500
+#define I2C_DEFAULT_TIMEOUT_MS 500
+
+/* Optional trailing timeout argument (ms) shared by _i2c_write/_i2c_read.
+ * Missing or non-positive falls back to I2C_DEFAULT_TIMEOUT_MS. */
+static int i2c_timeout_ms(mrbc_value v[], int argc, int idx)
+{
+  if (argc >= idx && v[idx].tt == MRBC_TT_INTEGER && mrbc_integer(v[idx]) > 0) {
+    return (int)mrbc_integer(v[idx]);
+  }
+  return I2C_DEFAULT_TIMEOUT_MS;
+}
 
 static i2c_master_bus_handle_t s_i2c_bus[2];
 static uint32_t                s_i2c_freq[2];
@@ -313,7 +323,7 @@ static void c_i2c_init(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_INT_RETURN(unit_num);
 }
 
-/* _i2c_write(unit_num, addr, data_array, nostop_int) */
+/* _i2c_write(unit_num, addr, data_array, nostop_int[, timeout_ms]) */
 static void c_i2c_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int     unit_num = GET_INT_ARG(1) ? 1 : 0;
@@ -338,14 +348,14 @@ static void c_i2c_write(mrbc_vm *vm, mrbc_value v[], int argc)
 
   i2c_master_dev_handle_t dev = i2c_dev(unit_num, addr);
   if (dev == NULL ||
-      i2c_master_transmit(dev, buf, n, I2C_TIMEOUT_MS) != ESP_OK) {
+      i2c_master_transmit(dev, buf, n, i2c_timeout_ms(v, argc, 5)) != ESP_OK) {
     SET_INT_RETURN(-1);
     return;
   }
   SET_INT_RETURN(n);
 }
 
-/* _i2c_read(unit_num, addr, len) → String or nil */
+/* _i2c_read(unit_num, addr, len[, timeout_ms]) → String or nil */
 static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int     unit_num = GET_INT_ARG(1) ? 1 : 0;
@@ -354,6 +364,7 @@ static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
   if (len > 256) len = 256;
 
   uint8_t buf[256];
+  int timeout_ms = i2c_timeout_ms(v, argc, 4);
   esp_err_t err;
   i2c_master_dev_handle_t dev = i2c_dev(unit_num, addr);
   if (dev == NULL) { SET_NIL_RETURN(); return; }
@@ -362,10 +373,10 @@ static void c_i2c_read(mrbc_vm *vm, mrbc_value v[], int argc)
     err = i2c_master_transmit_receive(dev,
                                       s_i2c_pending[unit_num],
                                       s_i2c_pending_len[unit_num],
-                                      buf, len, I2C_TIMEOUT_MS);
+                                      buf, len, timeout_ms);
     s_i2c_pending_len[unit_num] = 0;
   } else {
-    err = i2c_master_receive(dev, buf, len, I2C_TIMEOUT_MS);
+    err = i2c_master_receive(dev, buf, len, timeout_ms);
   }
 
   if (err != ESP_OK) { SET_NIL_RETURN(); return; }

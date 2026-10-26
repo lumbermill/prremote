@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `I2C#scan` takes a block, yielded `(addr, found)` after each of the 112 probes (0x08–0x77), so a script can show progress instead of sitting silent until the whole scan returns; and a `timeout:` keyword (ms per address) to shorten the wait on a suspect bus. Absent devices NACK at once, so a healthy bus scans in well under a second — but a broken one (wrong pins, missing pull-ups, a line held low) waits out the timeout at every address, up to ~56 s at the default 500 ms. The `i2c_scan.rb` examples for pico / m5go / xiao_c6 now print progress and scan with `timeout: 20`.
+
+### Fixed
+
+- `I2C.new(timeout:)` was stored but never used: every write / read waited a hard-coded 500 ms on both the Pico and ESP32 runtimes. `_i2c_write` / `_i2c_read` now take an optional trailing timeout in ms (falling back to 500 when missing or non-positive) and `I2C#write` / `#read` pass `@timeout`; `I2C#timeout=` changes it after construction.
+
 ## [0.4.2] - 2026-10-16
 
 ### Fixed
