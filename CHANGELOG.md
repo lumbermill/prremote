@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-27
+
 ### Added
 
 - `prremote install -b pico` / `picow` / `pico2` no longer needs the BOOTSEL button when the board is already running the runtime: it opens the board's serial port at 1200 bps, which pico-sdk's USB stdio treats as a request to reboot into the boot ROM, and waits up to 10 s for the `RPI-RP2` / `RP2350` drive. If there is no Pico port (`--port` overrides the detection), or the drive does not appear — a fresh board, other firmware, a wedged runtime, or a WSL drive letter still waiting to be mounted — it falls back to the manual BOOTSEL instructions as before. A board already in BOOTSEL is used as-is. _Verified end to end on a Pico W on macOS (touch → `RPI-RP2` → copy → reboot in ~9 s, no button); Linux, WSL and Pico 2 not yet exercised._
