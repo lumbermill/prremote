@@ -61,6 +61,10 @@ gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
 - ESP32 ビルドは `runtime/esp32/` の ESP-IDF プロジェクト（v5.3、vendored しない）。
   C バインディングは `esp32/main/bindings_esp32.c` が `bindings.c` と同名・同シグネチャで実装し、
   Ruby 層（`hw_wrap.rb`, `lcd_wrap.rb`）は両ビルドで共有する。
+- **ESP32-C6 は別ファイル**: `runtime/esp32c6/main/bindings_esp32c6.c` が独自に C バインディングを持つ
+  （`bindings_esp32.c` を共有しない）。`hw_wrap.rb` から呼ぶ `_xxx` を足す・変えるときは
+  `bindings.c` / `bindings_esp32.c` / `bindings_esp32c6.c` の **3 ファイル**を揃えること
+  （`grep -rln '"_i2c_init"' runtime --exclude-dir=build` で登録箇所を確認できる）。
 
 #### C 層（`bindings.c`, `bindings_cyw43.c`, `esp32/main/bindings_esp32.c`）— picoruby を参照しつつ独自実装
 - pico-sdk / ESP-IDF の API を mruby/c に直接バインドする独自コード。
