@@ -65,6 +65,7 @@ gem push pkg/prremote-X.X.X.gem --otp <認証アプリの6桁コード>
   （`bindings_esp32.c` を共有しない）。`hw_wrap.rb` から呼ぶ `_xxx` を足す・変えるときは
   `bindings.c` / `bindings_esp32.c` / `bindings_esp32c6.c` の **3 ファイル**を揃えること
   （`grep -rln '"_i2c_init"' runtime --exclude-dir=build` で登録箇所を確認できる）。
+  登録漏れは `test/binding_parity_test.rb`（`rake test`）が検出する。ビルド構成を変えたらテスト内の `BUILDS` 表も直す。
 
 #### C 層（`bindings.c`, `bindings_cyw43.c`, `esp32/main/bindings_esp32.c`）— picoruby を参照しつつ独自実装
 - pico-sdk / ESP-IDF の API を mruby/c に直接バインドする独自コード。

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `test/binding_parity_test.rb`: checks, without hardware, that every C binding the runtime's Ruby wrappers call (`_i2c_probe`, `_lcd_init`, …) is registered with `mrbc_define_method` in every build that compiles the wrapper — pico / picow / esp32 / esp32c6, each with its own binding sources — and that the build table matches the CMake files. A missing registration still builds and links and only fails on the board with `NoMethodError`, which is how 0.4.3's I2C change first shipped without `bindings_esp32c6.c`; replayed against that commit, the test fails on `_i2c_probe`.
+
 ## [0.4.3] - 2026-10-27
 
 ### Added
