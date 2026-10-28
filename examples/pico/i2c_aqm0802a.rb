@@ -60,7 +60,8 @@ lcd_print(i2c, "Hi Pico!")
 count = 0
 loop do
   lcd_move(i2c, 0, 1)
-  lcd_print(i2c, sprintf("%4d sec", count))  # always 8 chars, so no clear needed
+  # always 8 chars, so no clear needed
+  lcd_print(i2c, sprintf("%4d sec", count)) # rubocop:disable Style/FormatString -- mruby/c has no format
   count += 1
   sleep 1
 end
