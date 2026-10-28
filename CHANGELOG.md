@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `test/binding_parity_test.rb`: checks, without hardware, that every C binding the runtime's Ruby wrappers call (`_i2c_probe`, `_lcd_init`, …) is registered with `mrbc_define_method` in every build that compiles the wrapper — pico / picow / esp32 / esp32c6, each with its own binding sources — and that the build table matches the CMake files. A missing registration still builds and links and only fails on the board with `NoMethodError`, which is how 0.4.3's I2C change first shipped without `bindings_esp32c6.c`; replayed against that commit, the test fails on `_i2c_probe`.
+- Example: `examples/pico/i2c_aqm0802a.rb` — drives an AQM0802A-RN-GBW character LCD (ST7032, 8x2, I2C 0x3E) on GP4 / GP5 with plain `I2C#write`: init sequence with an adjustable contrast, cursor positioning, and a seconds counter on the second line.
+
+### Fixed
+
+- Pico / Pico W / Pico 2: PWM output stalled while a script was in `sleep`, so an LED at half brightness flickered hard (visible at 50–1000 Hz; 20 kHz looked steady but dimmer) and a servo or motor driver would lose its pulses. mruby/c's RP2040 HAL (`mrbc_hal_init`, run by the first `mrbc_init`) sets `clocks_hw->sleep_en0 = 0` and `sleep_en1` to the timer, USB and UART0 only, so every other peripheral clock — PWM, ADC, PIO, SPI, I2C — stopped whenever the CPU waited in `sleep_ms`, and the PWM counter only advanced in the short moments the 1 ms tick woke it. A busy loop kept the CPU awake, which is why the output measured correctly from a polling loop. The runtime now restores the reset values of `sleep_en0` / `sleep_en1` right after `mrbc_init`. _Reproduced on a Pico W with an LED on GP18 at 1000 Hz, `duty_u16 = 32768`: flickers during `sleep 8`, steady during an 8 s `uptime_ms` loop. With the fix both stay steady, a potentiometer-driven RGB LED dims smoothly, an SG90 servo holds 0° / 90° / 180° without jitter, and a DC motor on a TB6612 runs forward at 70% and backward at 50%. Pico 2 shares the HAL and gets the same fix, but was not tested._
 
 ## [0.4.3] - 2026-10-27
 

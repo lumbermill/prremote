@@ -31,6 +31,9 @@
 #ifdef HAS_LCD
 #include "lcd_wrap.h"
 #endif
+#ifdef MRBC_USE_HAL_RP2040
+#include "hardware/structs/clocks.h"
+#endif
 
 #ifndef MRB_BUFFER_SIZE_KB
 #define MRB_BUFFER_SIZE_KB 32
@@ -152,6 +155,14 @@ static void exec_mrb(void)
 {
   mrbc_cleanup();
   mrbc_init(memory_pool, HEAP_SIZE);
+#ifdef MRBC_USE_HAL_RP2040
+  /* mruby/c's RP2040 HAL (mrbc_hal_init, run by the first mrbc_init) leaves
+   * only the timer, USB and UART0 clocked while the CPU sleeps. PWM, ADC,
+   * PIO, SPI etc. then stop during sleep(), so a dimmed LED flickers and a
+   * servo loses its pulses. Restore the reset values: keep every clock on. */
+  clocks_hw->sleep_en0 = CLOCKS_SLEEP_EN0_RESET;
+  clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_RESET;
+#endif
   runtime_define_methods();
   define_version_const();
 
