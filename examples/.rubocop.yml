@@ -1,0 +1,11 @@
+# examples/ runs on mruby/c, not CRuby.
+inherit_from: ../.rubocop.yml
+
+# mruby/c has sprintf but no Kernel#format or String#%.
+Style/FormatString:
+  EnforcedStyle: sprintf
+
+# mruby/c's OP_STRCAT does not call a Ruby-defined #to_s (vm.c "TODO: Not
+# support?"), so interpolation needs an explicit .to_s — it is not redundant.
+Lint/RedundantStringCoercion:
+  Enabled: false
